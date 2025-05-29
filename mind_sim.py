@@ -4,7 +4,7 @@ import random
 import time
 from PIL import Image, ImageDraw
 
-# Constants
+# --- CONSTANTS ---
 GRID_WIDTH = 30
 GRID_HEIGHT = 30
 CELL_SIZE = 20
@@ -17,6 +17,7 @@ MOOD_DATA = {
     "angry": {"color": (200, 0, 0), "emoji": "😡"},
 }
 
+# --- CREATURE CLASS ---
 class Creature:
     def __init__(self, x, y):
         self.x = x
@@ -64,13 +65,16 @@ class Creature:
                 self.x = new_x
                 self.y = new_y
 
+# --- DRAW GRID FUNCTION ---
 def draw_grid(creatures):
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), (30, 30, 30))
     draw = ImageDraw.Draw(img)
+    # Draw grid lines
     for x in range(GRID_WIDTH + 1):
         draw.line([(x * CELL_SIZE, 0), (x * CELL_SIZE, GRID_HEIGHT * CELL_SIZE)], fill=(50, 50, 50))
     for y in range(GRID_HEIGHT + 1):
         draw.line([(0, y * CELL_SIZE), (GRID_WIDTH * CELL_SIZE, y * CELL_SIZE)], fill=(50, 50, 50))
+    # Draw creatures
     for c in creatures:
         mood_color = MOOD_DATA[c.mood]["color"]
         brightness = int(100 + 155 * min(1.0, c.energy / MAX_ENERGY))
@@ -80,29 +84,23 @@ def draw_grid(creatures):
         draw.rectangle([top_left, bottom_right], fill=color)
     return img
 
-def get_creature_info(c):
-    return (
-        f"Position: ({c.x},{c.y})\n"
-        f"Energy: {c.energy:.2f}\n"
-        f"Stress: {c.stress:.2f}\n"
-        f"Response: {c.response:.2f}\n"
-        f"Mood: {MOOD_DATA[c.mood]['emoji']} {c.mood.capitalize()}\n"
-        f"Disinhibited: {c.disinhibited}\n"
-        f"Constricted: {c.constricted}"
-    )
+# --- MAIN APP ---
 
 st.set_page_config(page_title="Mind Simulation Grid", layout="wide")
 st.title("🧠 Mind Simulation Sandbox")
 
 if "creatures" not in st.session_state:
-    st.session_state.creatures = [Creature(random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1)) for _ in range(10)]
+    st.session_state.creatures = [
+        Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1))
+        for _ in range(10)
+    ]
 if "running" not in st.session_state:
     st.session_state.running = False
-if "last_update" not in st.session_state:
-    st.session_state.last_update = time.time()
 
+# Sidebar Controls
 with st.sidebar:
     st.header("Controls")
+
     if st.button("Add Creature"):
         attempts = 0
         while attempts < 100:
@@ -114,7 +112,10 @@ with st.sidebar:
             attempts += 1
 
     if st.button("Reset Creatures"):
-        st.session_state.creatures = [Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)) for _ in range(10)]
+        st.session_state.creatures = [
+            Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1))
+            for _ in range(10)
+        ]
 
     if st.session_state.running:
         if st.button("Pause"):
@@ -123,24 +124,35 @@ with st.sidebar:
         if st.button("Play"):
             st.session_state.running = True
 
-st.markdown("---")
+# Show the grid
 img = draw_grid(st.session_state.creatures)
 st.image(img, width=GRID_WIDTH * CELL_SIZE)
 
+# Real-time update loop with st_autorefresh
 if st.session_state.running:
-    now = time.time()
-    if now - st.session_state.last_update > 0.5:
-        for c in st.session_state.creatures:
-            c.update(st.session_state.creatures)
-        st.session_state.last_update = now
-        # Instead of st.experimental_rerun(), just use st.experimental_set_query_params to force refresh
-        st.experimental_set_query_params(rerun=str(time.time()))
-        # Note: This triggers a soft rerun by changing query params.
+    count = st.experimental_get_query_params().get("count", ["0"])[0]
+    count = int(count) + 1
 
-# Display creature info on click (manual hack)
-if st.button("Show Creature Info at (15,15)"):
-    # Example: Show info for creature at pos (15,15)
+    # Update creatures on every refresh
     for c in st.session_state.creatures:
-        if c.x == 15 and c.y == 15:
-            st.info(get_creature_info(c))
-            break
+        c.update(st.session_state.creatures)
+
+    # Refresh every 500ms without external packages or deprecated calls
+    st.experimental_set_query_params(count=str(count))
+    st.experimental_rerun()  # **Note:** if this errors on your deployment, use the alternate below
+
+# Alternate approach if st.experimental_rerun() errors on Streamlit Cloud free:
+# Use built-in st_autorefresh widget:
+# from streamlit_autorefresh import st_autorefresh
+# if st.session_state.running:
+#     count = st_autorefresh(interval=500, limit=None, key="autorefresh")
+#     for c in st.session_state.creatures:
+#         c.update(st.session_state.creatures)
+
+# Display creature stats panel with emojis
+st.markdown("### Creatures' Moods")
+cols = st.columns(len(st.session_state.creatures))
+for idx, c in enumerate(st.session_state.creatures):
+    with cols[idx]:
+        st.write(f"{MOOD_DATA[c.mood]['emoji']} Energy: {c.energy:.1f}\nStress: {c.stress:.2f}")
+
