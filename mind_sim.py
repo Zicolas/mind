@@ -289,25 +289,6 @@ with st.sidebar:
                 break
             attempts += 1
 
-    st.subheader("Save / Load Simulation")
-    saved_creatures = serialize_creatures(st.session_state.creatures)
-    saved_energy = serialize_energy_sources(st.session_state.energy_sources)
-
-    creatures_json = st.text_area("Creatures JSON", saved_creatures, height=180, key="save_creatures_area")
-    energy_json = st.text_area("Energy Sources JSON", saved_energy, height=80, key="save_energy_area")
-
-    if st.button("Load Simulation from JSON"):
-        try:
-            loaded_creatures = deserialize_creatures(creatures_json)
-            loaded_energy = deserialize_energy_sources(energy_json)
-            st.session_state.creatures = loaded_creatures
-            st.session_state.energy_sources = loaded_energy
-            st.success("Simulation loaded successfully!")
-        except Exception as e:
-            st.error(f"Failed to load simulation: {e}")
-
-    st.markdown("---")
-
     st.subheader("Creature Profiles")
     creature_ids = [c.id for c in st.session_state.creatures]
     if creature_ids:
