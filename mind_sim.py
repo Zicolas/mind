@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import random
+import time
 
 GRID_WIDTH, GRID_HEIGHT = 40, 30
 NUM_CREATURES = 10
@@ -13,7 +14,7 @@ STRESSED_COLOR = np.array([200, 0, 0], dtype=np.uint8)
 st.set_page_config(page_title="Mind Grid Simulation", layout="wide")
 st.title("🧠 Creature Mind Grid Simulation")
 
-# Initialize state
+# Initialize state only once
 if "creatures" not in st.session_state:
     class Creature:
         def __init__(self):
@@ -42,18 +43,31 @@ if "creatures" not in st.session_state:
             self.y = max(0, min(GRID_HEIGHT - 1, self.y + dy))
 
     st.session_state.creatures = [Creature() for _ in range(NUM_CREATURES)]
+    st.session_state.running = False
 
-# Button for stepping the simulation manually
-if st.button("Step Simulation"):
-    for creature in st.session_state.creatures:
-        creature.update(st.session_state.creatures)
+# Play/Pause toggle
+if st.button("▶️ Play" if not st.session_state.running else "⏸ Pause"):
+    st.session_state.running = not st.session_state.running
 
-# Draw grid
-grid = np.zeros((GRID_HEIGHT, GRID_WIDTH, 3), dtype=np.uint8)
-for c in st.session_state.creatures:
-    color = STRESSED_COLOR if c.stress > 0.5 else CREATURE_COLOR
-    grid[c.y, c.x] = color
+# Container for animation
+display = st.empty()
 
-# Scale for display
-grid_display = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1), dtype=np.uint8))
-st.image(grid_display, caption="Creature Grid", use_container_width=False)
+# Simulation loop (run up to N frames)
+if st.session_state.running:
+    for _ in range(200):  # limit loop to avoid freezing UI
+        # Update creatures
+        for c in st.session_state.creatures:
+            c.update(st.session_state.creatures)
+
+        # Draw grid
+        grid = np.zeros((GRID_HEIGHT, GRID_WIDTH, 3), dtype=np.uint8)
+        for c in st.session_state.creatures:
+            color = STRESSED_COLOR if c.stress > 0.5 else CREATURE_COLOR
+            grid[c.y, c.x] = color
+
+        grid_display = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1), dtype=np.uint8))
+        display.image(grid_display, caption="Creature Grid", use_container_width=False)
+
+        time.sleep(0.3)
+
+    st.session_state.running = False
