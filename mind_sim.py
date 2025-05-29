@@ -29,6 +29,8 @@ class Creature:
         self.constricted = False
         self.response = 1.0
         self.mood = "neutral"
+        self.memory = []  # new: remember last few positions
+        self.age = 0      # new: age for possible reproduction
 
     def update(self, creatures):
         self.response *= self.habituation_rate
@@ -45,6 +47,8 @@ class Creature:
             self.inhibition = 0.0 if self.disinhibited else 0.3
 
         self.energy -= 0.1
+        self.age += 1  # age increments every update
+
         if self.energy <= 0:
             self.energy = random.uniform(4, 7)
             self.stress = 0.0
@@ -52,6 +56,7 @@ class Creature:
             self.disinhibited = False
             self.inhibition = 0.3
 
+        # Mood logic unchanged
         if self.stress < 0.3 and self.energy > 6:
             self.mood = "happy"
         elif self.stress > 0.7:
@@ -61,14 +66,55 @@ class Creature:
         else:
             self.mood = "neutral"
 
+        # Movement with basic goal: seek low stress zones or energy if low
         if not self.constricted:
-            dx = random.choice([-1, 0, 1])
-            dy = random.choice([-1, 0, 1])
-            new_x = min(max(self.x + dx, 0), GRID_WIDTH - 1)
-            new_y = min(max(self.y + dy, 0), GRID_HEIGHT - 1)
-            if not any(c.x == new_x and c.y == new_y for c in creatures):
+            # Look around adjacent cells for least crowded + possibly mate if energy high
+            neighbors = []
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    nx, ny = self.x + dx, self.y + dy
+                    if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
+                        neighbors.append((nx, ny))
+
+            # Prefer cells with no creature
+            empty_neighbors = [pos for pos in neighbors if not any(c.x == pos[0] and c.y == pos[1] for c in creatures)]
+
+            # Try to move toward "safe" empty cells (simulate seeking low stress)
+            if empty_neighbors:
+                # Prefer random empty cell (could be improved with real goals)
+                new_x, new_y = random.choice(empty_neighbors)
+
+                # Check for possible reproduction if energy high and age sufficient
+                if self.energy > 8 and self.age > 30:
+                    # Check if mate nearby (another creature in adjacent cells with high energy)
+                    mate = next(
+                        (c for c in creatures
+                         if c != self and abs(c.x - self.x) <= 1 and abs(c.y - self.y) <= 1
+                         and c.energy > 8 and c.age > 30),
+                        None
+                    )
+                    if mate:
+                        # Reproduce: create new creature near self if space
+                        free_spots = [
+                            pos for pos in empty_neighbors
+                            if pos != (new_x, new_y)  # avoid same spot
+                        ]
+                        if free_spots:
+                            bx, by = random.choice(free_spots)
+                            creatures.append(Creature(bx, by))
+                            # Energy cost for reproduction
+                            self.energy -= 3
+                            mate.energy -= 3
+                            self.age = 0
+                            mate.age = 0
+
                 self.x = new_x
                 self.y = new_y
+
+        # Update memory of positions (last 5)
+        self.memory.append((self.x, self.y))
+        if len(self.memory) > 5:
+            self.memory.pop(0)
 
 def draw_grid(creatures):
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), (30, 30, 30))
@@ -126,9 +172,7 @@ with st.sidebar:
 
 # Auto-refresh and update creatures if running
 if st.session_state.running:
-    # Use st_autorefresh to rerun app every 500ms
     count = st_autorefresh(interval=500, limit=None, key="autorefresh")
-    # Update creatures
     for c in st.session_state.creatures:
         c.update(st.session_state.creatures)
 
