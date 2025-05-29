@@ -59,7 +59,7 @@ class Creature:
 st.set_page_config(layout="wide")
 st.title("🧠 Mind Grid V1 – Mood & Movement")
 
-# Init
+# Init creatures list
 if "creatures" not in st.session_state:
     st.session_state.creatures = [Creature() for _ in range(10)]
     st.session_state.running = False
@@ -75,13 +75,13 @@ with col1:
 
     if st.button("🔁 Reset"):
         del st.session_state["creatures"]
-        st.rerun()
+        st.experimental_rerun()
 
 with col2:
     display = st.empty()
     stats = st.empty()
 
-# Simulation
+# Simulation loop
 if st.session_state.running:
     for _ in range(200):
         for c in st.session_state.creatures:
@@ -104,6 +104,15 @@ if st.session_state.running:
         time.sleep(0.4)
     st.session_state.running = False
 else:
-    # Show static
+    # Show static grid
     grid = np.zeros((GRID_HEIGHT, GRID_WIDTH, 3), dtype=np.uint8)
-    for c in st.session_state.creatur_
+    for c in st.session_state.creatures:
+        grid[c.y, c.x] = c.color()
+    display_img = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1), dtype=np.uint8))
+    display.image(display_img, use_container_width=False)
+
+    mood_lines = [
+        f"{get_mood_emoji(c.stress, c.energy, c.disinhibited)} {c.name}: ⚡ {c.energy:.2f}, 😰 {c.stress:.2f}"
+        for c in st.session_state.creatures[:10]
+    ]
+    stats.markdown("**Moods**\n" + "\n".join(mood_lines))
