@@ -16,7 +16,7 @@ STRESSED_COLOR = np.array([200, 0, 0], dtype=np.uint8)
 st.set_page_config(page_title="Mind Grid Simulation", layout="wide")
 st.title("🧠 Creature Mind Grid Simulation")
 
-# Initialize session state
+# Initialize session state with creatures
 if "creatures" not in st.session_state:
     class Creature:
         def __init__(self):
@@ -28,7 +28,7 @@ if "creatures" not in st.session_state:
             self.disinhibited = False
 
         def update(self, creatures):
-            # Sense nearby creatures
+            # Sense nearby creatures (within 1 cell)
             neighbors = sum(
                 1 for c in creatures
                 if c is not self and abs(c.x - self.x) <= 1 and abs(c.y - self.y) <= 1
@@ -42,14 +42,14 @@ if "creatures" not in st.session_state:
             if self.disinhibited:
                 self.energy = 1.0  # reset on burst
 
-            # Movement logic
+            # Movement logic (random move)
             dx, dy = random.choice([(0, 1), (1, 0), (-1, 0), (0, -1)])
             self.x = max(0, min(GRID_WIDTH - 1, self.x + dx))
             self.y = max(0, min(GRID_HEIGHT - 1, self.y + dy))
 
     st.session_state.creatures = [Creature() for _ in range(NUM_CREATURES)]
 
-# Update simulation
+# Update simulation creatures
 for creature in st.session_state.creatures:
     creature.update(st.session_state.creatures)
 
@@ -59,12 +59,12 @@ for c in st.session_state.creatures:
     color = STRESSED_COLOR if c.stress > 0.5 else CREATURE_COLOR
     grid[c.y, c.x] = color
 
-# Upscale grid for display
-grid_display = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1)))
+# Upscale grid for display, force uint8 dtype
+grid_display = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1), dtype=np.uint8))
 
 # Show the grid
-st.image(grid_display, caption="Creature Grid", use_column_width=False)
+st.image(grid_display, caption="Creature Grid", use_container_width=False)
 
-# Step button
+# Step simulation button
 if st.button("Step Simulation"):
-    st.rerun()
+    st.experimental_rerun()
