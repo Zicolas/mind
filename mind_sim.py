@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import random
 from PIL import Image, ImageDraw
-from streamlit.runtime.scriptrunner import add_script_run_ctx
+from streamlit_autorefresh import st_autorefresh
 
 # Constants
 GRID_WIDTH = 30
@@ -120,26 +120,11 @@ with st.sidebar:
 
 # Auto-refresh and update creatures if running
 if st.session_state.running:
-    # Refresh every 500 ms (0.5 seconds)
-    count = st.experimental_get_query_params().get("count", ["0"])[0]
-    count = int(count) + 1
-    st.experimental_set_query_params(count=str(count))
-
-    for c in st.session_state.creatures:
-        c.update(st.session_state.creatures)
-
-    # st_autorefresh triggers rerun without error, but call it last!
-    st.experimental_rerun()  # <-- THIS IS THE OLD PROBLEM LINE, REMOVE IT!
-
-# Replace the above line with this (uncomment to fix no experimental_rerun):
-
-
-from streamlit_autorefresh import st_autorefresh
-if st.session_state.running:
+    # Use st_autorefresh to rerun app every 500ms
     count = st_autorefresh(interval=500, limit=None, key="autorefresh")
+    # Update creatures
     for c in st.session_state.creatures:
         c.update(st.session_state.creatures)
-
 
 # Draw and display grid
 img = draw_grid(st.session_state.creatures)
