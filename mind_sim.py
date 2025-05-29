@@ -342,4 +342,4 @@ if st.session_state.running:
 
 # Draw the grid and creatures
 grid_img = draw_grid(st.session_state.creatures, st.session_state.energy_sources)
-st.image(grid_img, caption="Simulation Grid", use_column_width=True)
+st.image(grid_img, caption="Simulation Grid", use_container_width=True)
