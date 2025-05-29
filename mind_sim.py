@@ -10,7 +10,7 @@ from collections import deque
 GRID_WIDTH = 30
 GRID_HEIGHT = 30
 CELL_SIZE = 20
-MAX_ENERGY = 10.0
+MAX_ENERGY = 15.0  # increased max energy
 MAX_HISTORY = 50  # For stats tracking history length
 
 # Species data (two species with distinct colors)
@@ -46,7 +46,7 @@ class Creature:
         self.x = x
         self.y = y
         self.species = species
-        self.energy = random.uniform(4, 7)
+        self.energy = random.uniform(6, 10)  # increased initial energy range
         self.stress = 0.0
         self.habituation_rate = st.session_state.sim_params['habituation_rate']
         self.inhibition = st.session_state.sim_params['inhibition']
@@ -82,7 +82,7 @@ class Creature:
         if random.random() < 0.05:
             self.disinhibited = not self.disinhibited
 
-        self.energy -= 0.12
+        self.energy -= 0.06  # slower energy depletion
 
         if self.energy < 3 and energy_sources:
             closest = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
@@ -94,7 +94,7 @@ class Creature:
                 self.x = new_x
                 self.y = new_y
             if (self.x, self.y) == closest:
-                self.energy = min(MAX_ENERGY, self.energy + 5)
+                self.energy = min(MAX_ENERGY, self.energy + 8)  # bigger recharge
                 energy_sources.remove(closest)
         else:
             if not self.constricted:
@@ -107,7 +107,7 @@ class Creature:
                     self.y = new_y
 
         if self.energy <= 0:
-            self.energy = random.uniform(4, 7)
+            self.energy = random.uniform(6, 10)  # reset with higher initial energy
             self.stress = 0.0
             self.response = 1.0
             self.disinhibited = False
