@@ -66,14 +66,12 @@ if "creatures" not in st.session_state:
     st.session_state.creatures = [Creature() for _ in range(10)]
 if "running" not in st.session_state:
     st.session_state.running = False
-
-# Create placeholders for image and stats
 if "grid_placeholder" not in st.session_state:
     st.session_state.grid_placeholder = st.empty()
 if "stats_placeholder" not in st.session_state:
     st.session_state.stats_placeholder = st.empty()
 
-# Controls
+# --- CONTROL BUTTONS (always visible) ---
 col1, col2 = st.columns([1, 3])
 with col1:
     if st.button("▶️ Play" if not st.session_state.running else "⏸ Pause"):
@@ -87,32 +85,38 @@ with col1:
         st.session_state.running = False
 
 with col2:
-    # Placeholder usage to avoid flicker
-    display = st.session_state.grid_placeholder
-    stats = st.session_state.stats_placeholder
+    # Just empty space or maybe info/legend
+    st.markdown(
+        """
+        **Controls:** Play/Pause to run simulation, Add Creature to add one, Reset to restart.
+        """
+    )
 
-# Auto-refresh every 0.5 sec only if running
+# --- AUTO-REFRESH ---
 if st.session_state.running:
+    # Refresh page every 0.5 seconds when running
     st_autorefresh(interval=500, limit=None, key="refresh")
 
-# Update simulation one step per rerun
+# --- SIMULATION UPDATE ---
 if st.session_state.running:
-    for c in st.session_state.creatures:
-        c.update(st.session_state.creatures)
+    for creature in st.session_state.creatures:
+        creature.update(st.session_state.creatures)
 
-# Draw grid
+# --- RENDER GRID ---
 grid = np.zeros((GRID_HEIGHT, GRID_WIDTH, 3), dtype=np.uint8)
-for c in st.session_state.creatures:
-    grid[c.y, c.x] = c.color()
+for creature in st.session_state.creatures:
+    grid[creature.y, creature.x] = creature.color()
 
-# Scale up the grid pixels for display
 display_img = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1), dtype=np.uint8))
 
-# Update the image and stats placeholders — no flicker
-display.image(display_img, use_container_width=False, caption="Creature Mood Grid")
+# Update placeholders (no flicker)
+st.session_state.grid_placeholder.image(
+    display_img, use_container_width=False, caption="Creature Mood Grid"
+)
 
+# --- SHOW MOODS ---
 mood_lines = [
     f"{get_mood_emoji(c.stress, c.energy, c.disinhibited)} {c.name}: ⚡ {c.energy:.2f}, 😰 {c.stress:.2f}"
     for c in st.session_state.creatures[:10]
 ]
-stats.markdown("**Moods**\n" + "\n".join(mood_lines))
+st.session_state.stats_placeholder.markdown("**Moods**\n" + "\n".join(mood_lines))
