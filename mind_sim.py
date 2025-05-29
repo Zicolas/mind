@@ -42,22 +42,10 @@ if "creatures" not in st.session_state:
 
     st.session_state.creatures = [Creature() for _ in range(NUM_CREATURES)]
 
-# Initialize step flag
-if 'step' not in st.session_state:
-    st.session_state.step = False
-
-def step_sim():
-    st.session_state.step = True
-
-if st.button("Step Simulation", on_click=step_sim):
-    pass
-
-if st.session_state.step:
-    # Update creatures only when step triggered
+# Step simulation on button press (no rerun)
+if st.button("Step Simulation"):
     for creature in st.session_state.creatures:
         creature.update(st.session_state.creatures)
-    st.session_state.step = False
-    st.experimental_rerun()
 
 # Draw grid
 grid = np.zeros((GRID_HEIGHT, GRID_WIDTH, 3), dtype=np.uint8)
@@ -66,4 +54,5 @@ for c in st.session_state.creatures:
     grid[c.y, c.x] = color
 
 grid_display = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1), dtype=np.uint8))
+
 st.image(grid_display, caption="Creature Grid", use_container_width=False)
