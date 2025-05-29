@@ -30,41 +30,45 @@ class Creature:
         self.response = 1.0
         self.mood = "neutral"
 
-def update(self, creatures):
-    self.response *= self.habituation_rate
-    if not self.disinhibited:
-        self.response -= self.inhibition
-    # <-- Replace only this block for stress update:
-    stress_change = (random.random() - 0.5) * 0.1  # random change between -0.05 and +0.05
-    self.stress = min(1.0, max(0.0, self.stress + stress_change))
-    
-    self.constricted = self.stress > 0.7
-    if random.random() < 0.05:
-        self.disinhibited = not self.disinhibited
-        self.inhibition = 0.0 if self.disinhibited else 0.3
-    self.energy -= 0.1
-    if self.energy <= 0:
-        self.energy = random.uniform(4, 7)
-        self.stress = 0.0
-        self.response = 1.0
-        self.disinhibited = False
-        self.inhibition = 0.3
-    if self.stress < 0.3 and self.energy > 6:
-        self.mood = "happy"
-    elif self.stress > 0.7:
-        self.mood = "angry"
-    elif self.stress > 0.4:
-        self.mood = "stressed"
-    else:
-        self.mood = "neutral"
-    if not self.constricted:
-        dx = random.choice([-1, 0, 1])
-        dy = random.choice([-1, 0, 1])
-        new_x = min(max(self.x + dx, 0), GRID_WIDTH - 1)
-        new_y = min(max(self.y + dy, 0), GRID_HEIGHT - 1)
-        if not any(c.x == new_x and c.y == new_y for c in creatures):
-            self.x = new_x
-            self.y = new_y
+    def update(self, creatures):
+        self.response *= self.habituation_rate
+        if not self.disinhibited:
+            self.response -= self.inhibition
+
+        # Small random stress fluctuation up/down
+        stress_change = (random.random() - 0.5) * 0.1
+        self.stress = min(1.0, max(0.0, self.stress + stress_change))
+
+        self.constricted = self.stress > 0.7
+        if random.random() < 0.05:
+            self.disinhibited = not self.disinhibited
+            self.inhibition = 0.0 if self.disinhibited else 0.3
+
+        self.energy -= 0.1
+        if self.energy <= 0:
+            self.energy = random.uniform(4, 7)
+            self.stress = 0.0
+            self.response = 1.0
+            self.disinhibited = False
+            self.inhibition = 0.3
+
+        if self.stress < 0.3 and self.energy > 6:
+            self.mood = "happy"
+        elif self.stress > 0.7:
+            self.mood = "angry"
+        elif self.stress > 0.4:
+            self.mood = "stressed"
+        else:
+            self.mood = "neutral"
+
+        if not self.constricted:
+            dx = random.choice([-1, 0, 1])
+            dy = random.choice([-1, 0, 1])
+            new_x = min(max(self.x + dx, 0), GRID_WIDTH - 1)
+            new_y = min(max(self.y + dy, 0), GRID_HEIGHT - 1)
+            if not any(c.x == new_x and c.y == new_y for c in creatures):
+                self.x = new_x
+                self.y = new_y
 
 def draw_grid(creatures):
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), (30, 30, 30))
@@ -122,7 +126,9 @@ with st.sidebar:
 
 # Auto-refresh and update creatures if running
 if st.session_state.running:
+    # Use st_autorefresh to rerun app every 500ms
     count = st_autorefresh(interval=500, limit=None, key="autorefresh")
+    # Update creatures
     for c in st.session_state.creatures:
         c.update(st.session_state.creatures)
 
