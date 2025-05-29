@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
 import random
-import time
 
 GRID_WIDTH, GRID_HEIGHT = 40, 30
 NUM_CREATURES = 10
@@ -14,6 +13,7 @@ STRESSED_COLOR = np.array([200, 0, 0], dtype=np.uint8)
 st.set_page_config(page_title="Mind Grid Simulation", layout="wide")
 st.title("🧠 Creature Mind Grid Simulation")
 
+# Initialize state
 if "creatures" not in st.session_state:
     class Creature:
         def __init__(self):
@@ -42,19 +42,9 @@ if "creatures" not in st.session_state:
             self.y = max(0, min(GRID_HEIGHT - 1, self.y + dy))
 
     st.session_state.creatures = [Creature() for _ in range(NUM_CREATURES)]
-    st.session_state.running = True
 
-# Control buttons
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Pause"):
-        st.session_state.running = False
-with col2:
-    if st.button("Resume"):
-        st.session_state.running = True
-
-# Auto-update simulation if running
-if st.session_state.running:
+# Button for stepping the simulation manually
+if st.button("Step Simulation"):
     for creature in st.session_state.creatures:
         creature.update(st.session_state.creatures)
 
@@ -64,10 +54,6 @@ for c in st.session_state.creatures:
     color = STRESSED_COLOR if c.stress > 0.5 else CREATURE_COLOR
     grid[c.y, c.x] = color
 
+# Scale for display
 grid_display = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1), dtype=np.uint8))
 st.image(grid_display, caption="Creature Grid", use_container_width=False)
-
-# Refresh every second when running
-if st.session_state.running:
-    time.sleep(1)
-    st.experimental_rerun()
