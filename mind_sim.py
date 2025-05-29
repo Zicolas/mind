@@ -88,15 +88,6 @@ def draw_grid(creatures):
         bottom_right = ((c.x + 1) * CELL_SIZE - 2, (c.y + 1) * CELL_SIZE - 2)
         draw.rectangle([top_left, bottom_right], fill=color)
 
-    # Add coordinates text in top-left corner
-    coord_text = f"Coords: (0,0) bottom-left\n        ({GRID_WIDTH-1},{GRID_HEIGHT-1}) top-right"
-    # Use default font, size 14 (approx)
-    try:
-        font = ImageFont.truetype("arial.ttf", 14)
-    except:
-        font = ImageFont.load_default()
-    draw.multiline_text((5, 5), coord_text, fill=(255, 255, 255), font=font)
-
     return img
 
 st.set_page_config(page_title="Mind Simulation Grid", layout="wide")
