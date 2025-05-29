@@ -120,9 +120,7 @@ with st.sidebar:
 
 # Auto-refresh and update creatures if running
 if st.session_state.running:
-    # Use st_autorefresh to rerun app every 500ms
     count = st_autorefresh(interval=500, limit=None, key="autorefresh")
-    # Update creatures
     for c in st.session_state.creatures:
         c.update(st.session_state.creatures)
 
