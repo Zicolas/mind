@@ -1,40 +1,106 @@
 import streamlit as st
 import numpy as np
+import random
 from streamlit_autorefresh import st_autorefresh
 
 GRID_WIDTH, GRID_HEIGHT = 20, 15
 PIXEL_SIZE = 20
+NUM_CREATURES = 5
 
-st.title("Minimal Grid Simulation with Play/Pause")
+class Creature:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.response = 1.0
+        self.habituation_rate = 0.9
+        self.inhibition = 0.5
+        self.disinhibited = False
+        self.constricted = False
+        self.stress_level = 0.0  # 0 to 1
+        self.mood = "😊"
 
-# Initialize session state variables
+    def update(self, others):
+        # Habituation
+        self.response *= self.habituation_rate
+
+        # Inhibition
+        if not self.disinhibited:
+            self.response -= self.inhibition
+            if self.response < 0:
+                self.response = 0
+
+        # Stress increases if many creatures nearby
+        nearby = sum(1 for c in others if abs(c.x - self.x) <= 1 and abs(c.y - self.y) <= 1 and c != self)
+        self.stress_level = min(1.0, nearby / 4)
+
+        # Constriction logic: high stress constricts creature
+        if self.stress_level > 0.7:
+            self.constricted = True
+            self.mood = "😡"
+        else:
+            self.constricted = False
+            self.mood = "😊"
+
+        # Disinhibition event randomly
+        if random.random() < 0.05:
+            self.disinhibited = True
+            self.inhibition = 0.0
+        else:
+            # Recover inhibition slowly
+            if self.disinhibited:
+                self.inhibition += 0.05
+                if self.inhibition >= 0.5:
+                    self.inhibition = 0.5
+                    self.disinhibited = False
+
+        # Movement: if not constricted, move randomly inside grid
+        if not self.constricted:
+            dx = random.choice([-1, 0, 1])
+            dy = random.choice([-1, 0, 1])
+            new_x = max(0, min(GRID_WIDTH - 1, self.x + dx))
+            new_y = max(0, min(GRID_HEIGHT - 1, self.y + dy))
+            self.x, self.y = new_x, new_y
+
+
+# Initialize session state
 if "running" not in st.session_state:
     st.session_state.running = False
-if "pos" not in st.session_state:
-    st.session_state.pos = 0
+if "creatures" not in st.session_state:
+    st.session_state.creatures = [Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)) for _ in range(NUM_CREATURES)]
 
-# Control buttons (always visible)
+st.title("Creature Mind Simulator 🧠")
+
+# Controls
 col1, col2 = st.columns([1, 4])
 with col1:
     if st.button("▶️ Play" if not st.session_state.running else "⏸ Pause"):
         st.session_state.running = not st.session_state.running
 with col2:
-    st.write("Click Play to start the simulation.")
+    st.write("Click Play to start or pause simulation.")
 
-# Autorefresh only when running
+# Autorefresh only if running
 if st.session_state.running:
-    st_autorefresh(interval=1000, limit=None, key="refresh")
+    st_autorefresh(interval=500, limit=None, key="refresh")
 
-# Update position if running
+# Update creatures if running
 if st.session_state.running:
-    st.session_state.pos = (st.session_state.pos + 1) % GRID_WIDTH
+    for c in st.session_state.creatures:
+        c.update(st.session_state.creatures)
 
-# Create empty grid and draw moving pixel
+# Create empty grid
 grid = np.zeros((GRID_HEIGHT, GRID_WIDTH, 3), dtype=np.uint8)
-grid[GRID_HEIGHT // 2, st.session_state.pos] = [255, 0, 0]  # red pixel in middle row
 
-# Scale grid pixels up for visibility
+# Draw creatures on grid
+for idx, c in enumerate(st.session_state.creatures):
+    color = [0, 255, 0] if not c.constricted else [255, 0, 0]
+    grid[c.y, c.x] = color
+
+# Scale grid pixels
 display_img = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1), dtype=np.uint8))
 
+# Display mood emojis
+moods = " ".join([c.mood for c in st.session_state.creatures])
+st.markdown(f"### Moods: {moods}")
+
 # Show grid image
-st.image(display_img, caption="Moving pixel grid", use_container_width=False)
+st.image(display_img, caption="Creature Grid", use_container_width=False)
