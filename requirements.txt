@@ -1,4 +1,4 @@
 streamlit
+streamlit-autorefresh
 numpy
 pillow
-streamlit-autorefresh
