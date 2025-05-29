@@ -59,13 +59,19 @@ class Creature:
             return COLOR_NORMAL
 
 st.set_page_config(layout="wide")
-st.title("🧠 Mind Grid V2 – Real-Time Simulation")
+st.title("🧠 Mind Grid V2 – Smooth Real-Time Simulation")
 
 # Initialize session state
 if "creatures" not in st.session_state:
     st.session_state.creatures = [Creature() for _ in range(10)]
 if "running" not in st.session_state:
     st.session_state.running = False
+
+# Create placeholders for image and stats
+if "grid_placeholder" not in st.session_state:
+    st.session_state.grid_placeholder = st.empty()
+if "stats_placeholder" not in st.session_state:
+    st.session_state.stats_placeholder = st.empty()
 
 # Controls
 col1, col2 = st.columns([1, 3])
@@ -81,14 +87,15 @@ with col1:
         st.session_state.running = False
 
 with col2:
-    display = st.empty()
-    stats = st.empty()
+    # Placeholder usage to avoid flicker
+    display = st.session_state.grid_placeholder
+    stats = st.session_state.stats_placeholder
 
-# Auto-refresh only if running
+# Auto-refresh every 0.5 sec only if running
 if st.session_state.running:
-    st_autorefresh(interval=500, limit=None, key="refresh")  # refresh every 0.5 sec
+    st_autorefresh(interval=500, limit=None, key="refresh")
 
-# Update simulation one step per rerun when running
+# Update simulation one step per rerun
 if st.session_state.running:
     for c in st.session_state.creatures:
         c.update(st.session_state.creatures)
@@ -98,7 +105,10 @@ grid = np.zeros((GRID_HEIGHT, GRID_WIDTH, 3), dtype=np.uint8)
 for c in st.session_state.creatures:
     grid[c.y, c.x] = c.color()
 
+# Scale up the grid pixels for display
 display_img = np.kron(grid, np.ones((PIXEL_SIZE, PIXEL_SIZE, 1), dtype=np.uint8))
+
+# Update the image and stats placeholders — no flicker
 display.image(display_img, use_container_width=False, caption="Creature Mood Grid")
 
 mood_lines = [
