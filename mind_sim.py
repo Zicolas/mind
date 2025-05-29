@@ -1,12 +1,13 @@
 import streamlit as st
 import numpy as np
 import random
-import plotly.graph_objects as go
+from PIL import Image, ImageDraw, ImageFont
 from streamlit_autorefresh import st_autorefresh
 
 # Constants
 GRID_WIDTH = 30
 GRID_HEIGHT = 30
+CELL_SIZE = 20
 MAX_ENERGY = 10.0
 
 MOOD_DATA = {
@@ -34,7 +35,6 @@ class Creature:
         if not self.disinhibited:
             self.response -= self.inhibition
 
-        # Small random stress fluctuation up/down
         stress_change = (random.random() - 0.5) * 0.1
         self.stress = min(1.0, max(0.0, self.stress + stress_change))
 
@@ -69,90 +69,35 @@ class Creature:
                 self.x = new_x
                 self.y = new_y
 
-def rgb_to_hex(rgb):
-    return '#%02x%02x%02x' % rgb
+def draw_grid(creatures):
+    img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), (30, 30, 30))
+    draw = ImageDraw.Draw(img)
 
-def draw_grid_plotly(creatures):
-    # Create empty grid background
-    grid_colors = [["#1e1e1e" for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+    # Draw grid lines
+    for x in range(GRID_WIDTH + 1):
+        draw.line([(x * CELL_SIZE, 0), (x * CELL_SIZE, GRID_HEIGHT * CELL_SIZE)], fill=(50, 50, 50))
+    for y in range(GRID_HEIGHT + 1):
+        draw.line([(0, y * CELL_SIZE), (GRID_WIDTH * CELL_SIZE, y * CELL_SIZE)], fill=(50, 50, 50))
 
-    # Fill cells with creature colors
+    # Draw creatures as colored squares
     for c in creatures:
         mood_color = MOOD_DATA[c.mood]["color"]
         brightness = int(100 + 155 * min(1.0, c.energy / MAX_ENERGY))
         color = tuple(min(255, int(brightness * (v / 255))) for v in mood_color)
-        grid_colors[c.y][c.x] = rgb_to_hex(color)
+        top_left = (c.x * CELL_SIZE + 2, c.y * CELL_SIZE + 2)
+        bottom_right = ((c.x + 1) * CELL_SIZE - 2, (c.y + 1) * CELL_SIZE - 2)
+        draw.rectangle([top_left, bottom_right], fill=color)
 
-    fig = go.Figure(data=go.Heatmap(
-        z=[[1]*GRID_WIDTH for _ in range(GRID_HEIGHT)],  # Dummy values to get grid shape
-        x=list(range(GRID_WIDTH)),
-        y=list(range(GRID_HEIGHT)),
-        hoverinfo='skip',
-        showscale=False,
-        colorscale=[[0, '#1e1e1e'], [1, '#1e1e1e']],  # Background color fixed
-        zmin=0, zmax=1,
-    ))
+    # Add coordinates text in top-left corner
+    coord_text = f"Coords: (0,0) bottom-left\n        ({GRID_WIDTH-1},{GRID_HEIGHT-1}) top-right"
+    # Use default font, size 14 (approx)
+    try:
+        font = ImageFont.truetype("arial.ttf", 14)
+    except:
+        font = ImageFont.load_default()
+    draw.multiline_text((5, 5), coord_text, fill=(255, 255, 255), font=font)
 
-    # Overlay colored squares for creatures using Scatter
-    xs = [c.x + 0.5 for c in creatures]
-    ys = [c.y + 0.5 for c in creatures]
-    colors = [grid_colors[c.y][c.x] for c in creatures]
-
-    fig.add_trace(go.Scatter(
-        x=xs,
-        y=ys,
-        mode='markers',
-        marker=dict(
-            size=30,
-            color=colors,
-            symbol='square',
-            line=dict(color='black', width=1)
-        ),
-        hoverinfo='text',
-        text=[f"Energy: {c.energy:.1f}<br>Stress: {c.stress:.2f}<br>Mood: {c.mood}" for c in creatures],
-    ))
-
-    # Show coordinates in bottom-right corner as white text annotation
-    fig.add_annotation(
-        x=GRID_WIDTH - 1,
-        y=GRID_HEIGHT - 1,
-        text=f"0,0 bottom-left →\n{GRID_WIDTH-1},{GRID_HEIGHT-1} top-right",
-        showarrow=False,
-        font=dict(color="white", size=12),
-        xanchor='right',
-        yanchor='bottom'
-    )
-
-    fig.update_layout(
-        yaxis=dict(
-            autorange='reversed',
-            showgrid=True,
-            tickmode='linear',
-            dtick=1,
-            showticklabels=False,
-            zeroline=False,
-            gridcolor='gray',
-            gridwidth=1,
-            scaleanchor="x",
-            scaleratio=1,
-        ),
-        xaxis=dict(
-            showgrid=True,
-            tickmode='linear',
-            dtick=1,
-            showticklabels=False,
-            zeroline=False,
-            gridcolor='gray',
-            gridwidth=1,
-        ),
-        plot_bgcolor='#1e1e1e',
-        margin=dict(l=20, r=20, t=20, b=20),
-        dragmode='pan',  # enables pan on drag
-    )
-
-    fig.update_traces(hoverlabel=dict(bgcolor="black", font_size=12))
-
-    return fig
+    return img
 
 st.set_page_config(page_title="Mind Simulation Grid", layout="wide")
 st.title("🧠 Mind Simulation Sandbox")
@@ -198,9 +143,9 @@ if st.session_state.running:
     for c in st.session_state.creatures:
         c.update(st.session_state.creatures)
 
-# Draw grid with Plotly figure (zoom/pan supported)
-fig = draw_grid_plotly(st.session_state.creatures)
-st.plotly_chart(fig, use_container_width=True)
+# Draw and display grid
+img = draw_grid(st.session_state.creatures)
+st.image(img, width=GRID_WIDTH * CELL_SIZE)
 
 # Show moods and stats
 st.markdown("### Creatures' Moods")
