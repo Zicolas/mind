@@ -315,7 +315,6 @@ season = st.session_state.season
 day_night = st.session_state.day_night
 creatures = st.session_state.creatures
 energy_sources = st.session_state.energy_sources
-
 creatures_copy = list(creatures)
 for c in creatures_copy:
     c.update(creatures, energy_sources, weather, season, day_night)
