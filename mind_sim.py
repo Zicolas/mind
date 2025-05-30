@@ -166,10 +166,10 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
     elif season == "autumn" or season == "fall":
         base_color = (base_color[0] + 30, base_color[1], base_color[2])
     elif season == "winter":
-        base_color = tuple(min(255, int(c * 0.9)) for c in base_color)
+        base_color = tuple(min(255, int(c * 170)) for c in base_color)
 
     if day_night == "night":
-        base_color = tuple(max(0, int(c * 0.4)) for c in base_color)
+        base_color = tuple(max(0, int(c * 0.55)) for c in base_color)
 
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), base_color)
     draw = ImageDraw.Draw(img)
