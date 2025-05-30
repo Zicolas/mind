@@ -196,8 +196,7 @@ if "running" not in st.session_state:
 # --- Sidebar UI ---
 
 with st.sidebar:
-    st.header("Controls")
-    st.subheader("Weather")
+    st.header("Weather")
     st.session_state.weather = st.selectbox(
         "", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
     )
