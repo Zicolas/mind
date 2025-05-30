@@ -2,10 +2,10 @@ import streamlit as st
 import numpy as np
 import random
 import json
-import copy
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from streamlit_autorefresh import st_autorefresh
 from collections import deque
+import copy
 
 # Constants
 GRID_WIDTH = 30
@@ -70,24 +70,42 @@ class Creature:
         self.constricted = False
         self.response = 1.0
         self.mood = "neutral"
+
         self.age = 0
-        self.max_age = random.randint(80, 120)  # Lifespan
-        self.memory = {}  # Simple experience memory
-        self.mutation_rate = 0.1  # Controls trait mutation
+        self.max_age = random.randint(80, 120)
+        self.memory = {}
+        self.mutation_rate = 0.1
         self.generation = 1
 
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
 
+    def mutate(self):
+        if random.random() < self.mutation_rate:
+            self.habituation_rate += random.uniform(-0.01, 0.01)
+            self.habituation_rate = min(max(0.85, self.habituation_rate), 0.99)
+        if random.random() < self.mutation_rate:
+            self.inhibition += random.uniform(-0.05, 0.05)
+            self.inhibition = min(max(0.1, self.inhibition), 0.5)
+        if random.random() < self.mutation_rate:
+            self.max_age += random.randint(-10, 10)
+            self.max_age = max(50, min(150, self.max_age))
+
     def update(self, creatures, energy_sources, weather, season, day_night):
+        self.age += 1
+        if self.age > self.max_age or self.energy <= 0:
+            creatures.remove(self)
+            return
+
         if weather == "sunny":
             self.stress -= 0.01
-        elif weather == "cloudy":
-            pass
         elif weather == "rainy":
             self.stress += 0.01
         elif weather == "stormy":
             self.stress += 0.03
+            if random.random() < 0.1:
+                self.energy -= 1.5
+                self.stress += 0.05
 
         self.stress = min(1.0, max(0.0, self.stress))
         self.response *= self.habituation_rate
@@ -118,6 +136,7 @@ class Creature:
             if (self.x, self.y) == closest:
                 self.energy = min(MAX_ENERGY, self.energy + 8)
                 energy_sources.remove(closest)
+                self.memory[(self.x, self.y)] = self.memory.get((self.x, self.y), 0) + 1
         else:
             if not self.constricted:
                 dx = random.choice([-1, 0, 1])
@@ -128,12 +147,6 @@ class Creature:
                     self.x = new_x
                     self.y = new_y
 
-        if self.energy <= 0:
-            self.energy = random.uniform(6, 10)
-            self.stress = 0.0
-            self.response = 1.0
-            self.disinhibited = False
-
         if self.stress < 0.3 and self.energy > 6:
             self.mood = "happy"
         elif self.stress > 0.7:
@@ -143,16 +156,6 @@ class Creature:
         else:
             self.mood = "neutral"
 
-        self.energy_history.append(self.energy)
-        self.stress_history.append(self.stress)
-
-                # Aging and death
-        self.age += 1
-        if self.age > self.max_age or self.energy <= 0:
-            creatures.remove(self)
-            continue  # Skip further updates
-        
-        # Reproduction
         if self.energy > 12 and random.random() < 0.02:
             baby = copy.deepcopy(self)
             baby.x = max(0, min(GRID_WIDTH - 1, self.x + random.choice([-1, 0, 1])))
@@ -164,12 +167,9 @@ class Creature:
             baby.memory = {}
             baby.mutate()
             creatures.append(baby)
-        
-        # Environmental hazards (e.g., weather stress)
-        if weather == "stormy":
-            if random.random() < 0.1:
-                self.energy -= 1.5
-                self.stress += 0.05
+
+        self.energy_history.append(self.energy)
+        self.stress_history.append(self.stress)
 
 def draw_grid(creatures, energy_sources, weather, season, day_night):
     ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
