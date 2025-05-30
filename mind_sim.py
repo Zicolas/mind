@@ -5,7 +5,6 @@ import json
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from streamlit_autorefresh import st_autorefresh
 from collections import deque
-import copy
 
 # Constants
 GRID_WIDTH = 30
@@ -15,6 +14,10 @@ MAX_ENERGY = 15.0
 MAX_HISTORY = 50
 
 TRAIL_FADE_STEPS = 10
+MAX_AGE = 1000
+REPRODUCTION_THRESHOLD = 12
+REPRODUCTION_PROB = 0.1
+REPRODUCTION_COST = 4
 
 # Weather options
 WEATHER_OPTIONS = ["sunny", "cloudy", "rainy", "stormy"]
@@ -64,48 +67,33 @@ class Creature:
         self.species = species
         self.energy = random.uniform(6, 10)
         self.stress = 0.0
+        self.age = 0
         self.habituation_rate = st.session_state.sim_params.get("habituation_rate", 0.95)
         self.inhibition = st.session_state.sim_params.get("inhibition", 0.2)
         self.disinhibited = False
         self.constricted = False
         self.response = 1.0
         self.mood = "neutral"
-
-        self.age = 0
-        self.max_age = random.randint(400, 800)
-        self.memory = {}
-        self.mutation_rate = 0.1
-        self.generation = 1
+        self.memory = deque(maxlen=5)
 
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
 
-    def mutate(self):
-        if random.random() < self.mutation_rate:
-            self.habituation_rate += random.uniform(-0.01, 0.01)
-            self.habituation_rate = min(max(0.85, self.habituation_rate), 0.99)
-        if random.random() < self.mutation_rate:
-            self.inhibition += random.uniform(-0.05, 0.05)
-            self.inhibition = min(max(0.1, self.inhibition), 0.5)
-        if random.random() < self.mutation_rate:
-            self.max_age += random.randint(-10, 10)
-            self.max_age = max(50, min(150, self.max_age))
+    def mutate_from(self, parent):
+        self.habituation_rate = min(1.0, max(0.8, parent.habituation_rate + random.uniform(-0.01, 0.01)))
+        self.inhibition = min(1.0, max(0.0, parent.inhibition + random.uniform(-0.01, 0.01)))
 
     def update(self, creatures, energy_sources, weather, season, day_night):
         self.age += 1
-        if self.age > self.max_age or self.energy <= 0:
-            creatures.remove(self)
-            return
+        offspring = []
 
+        # Weather effects
         if weather == "sunny":
             self.stress -= 0.01
         elif weather == "rainy":
             self.stress += 0.01
         elif weather == "stormy":
             self.stress += 0.03
-            if random.random() < 0.1:
-                self.energy -= 1.5
-                self.stress += 0.05
 
         self.stress = min(1.0, max(0.0, self.stress))
         self.response *= self.habituation_rate
@@ -124,6 +112,9 @@ class Creature:
 
         self.energy -= 0.06
 
+        # Memory: remember stress levels
+        self.memory.append((self.energy, self.stress))
+
         if self.energy < 3 and energy_sources:
             closest = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
             dx = np.sign(closest[0] - self.x)
@@ -136,7 +127,6 @@ class Creature:
             if (self.x, self.y) == closest:
                 self.energy = min(MAX_ENERGY, self.energy + 8)
                 energy_sources.remove(closest)
-                self.memory[(self.x, self.y)] = self.memory.get((self.x, self.y), 0) + 1
         else:
             if not self.constricted:
                 dx = random.choice([-1, 0, 1])
@@ -147,6 +137,16 @@ class Creature:
                     self.x = new_x
                     self.y = new_y
 
+        if self.energy <= 0 or self.age >= MAX_AGE:
+            creatures.remove(self)
+            return []
+
+        if self.energy > REPRODUCTION_THRESHOLD and random.random() < REPRODUCTION_PROB:
+            child = Creature(self.x, self.y, self.species)
+            child.mutate_from(self)
+            offspring.append(child)
+            self.energy -= REPRODUCTION_COST
+
         if self.stress < 0.3 and self.energy > 6:
             self.mood = "happy"
         elif self.stress > 0.7:
@@ -156,20 +156,10 @@ class Creature:
         else:
             self.mood = "neutral"
 
-        if self.energy > 12 and random.random() < 0.02:
-            baby = copy.deepcopy(self)
-            baby.x = max(0, min(GRID_WIDTH - 1, self.x + random.choice([-1, 0, 1])))
-            baby.y = max(0, min(GRID_HEIGHT - 1, self.y + random.choice([-1, 0, 1])))
-            baby.energy = self.energy / 2
-            self.energy /= 2
-            baby.age = 0
-            baby.generation += 1
-            baby.memory = {}
-            baby.mutate()
-            creatures.append(baby)
-
         self.energy_history.append(self.energy)
         self.stress_history.append(self.stress)
+
+        return offspring
 
 def draw_grid(creatures, energy_sources, weather, season, day_night):
     ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
@@ -315,9 +305,13 @@ season = st.session_state.season
 day_night = st.session_state.day_night
 creatures = st.session_state.creatures
 energy_sources = st.session_state.energy_sources
-creatures_copy = list(creatures)
-for c in creatures_copy:
-    c.update(creatures, energy_sources, weather, season, day_night)
+
+newborns = []
+for c in creatures[:]:  # use a copy to allow removal
+    offspring = c.update(creatures, energy_sources, weather, season, day_night)
+    if offspring:
+        newborns.extend(offspring)
+creatures.extend(newborns)
 
 # Update creature trail map
 new_trails = {}
