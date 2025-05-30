@@ -171,7 +171,7 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
     # Draw fading trails
     trail_map = st.session_state.creature_trail_map
     for (tx, ty), intensity in trail_map.items():
-        fade_color = (100, 100, 100, int(255 * (intensity / TRAIL_FADE_STEPS)))
+        fade_color = (255, 255, 255, int(255 * (intensity / TRAIL_FADE_STEPS)))
         trail_overlay = Image.new("RGBA", (CELL_SIZE, CELL_SIZE), fade_color)
         img.paste(trail_overlay, (tx * CELL_SIZE, ty * CELL_SIZE), trail_overlay)
     
