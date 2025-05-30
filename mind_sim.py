@@ -194,6 +194,31 @@ class Creature:
         self.energy_history.append(self.energy)
         self.stress_history.append(self.stress)
 
+env_zones = st.session_state.env_zones
+
+new_creatures = []
+for c in creatures:
+    c.update(creatures, energy_sources, weather, season, day_night, env_zones)
+
+    # Reproduction: if energy high and low stress, create offspring nearby if space
+    if c.energy > 12 and c.stress < 0.3:
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                nx = c.x + dx
+                ny = c.y + dy
+                if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
+                    if not any(cr.x == nx and cr.y == ny for cr in creatures + new_creatures):
+                        offspring = Creature(nx, ny, c.species)
+                        offspring.energy = c.energy / 2
+                        c.energy /= 2
+                        new_creatures.append(offspring)
+                        break
+            else:
+                continue
+            break
+
+creatures.extend(new_creatures)
+
 def draw_grid(creatures, energy_sources, weather, season, day_night):
     ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), ground_color)
