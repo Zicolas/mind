@@ -23,7 +23,7 @@ SEASON_GROUND_COLORS = {
     "spring": "#799548",
     "summer": "#A2B86C",
     "fall": "#A6824E",
-    "winter": "#769AAE",
+    "winter": "#799548",
 }
 
 # Species data
@@ -173,14 +173,13 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
     # Apply overlays
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     if day_night == "night":
-        overlay = Image.new("RGBA", img.size, (10, 10, 50, 130))
+        overlay = Image.new("RGBA", img.size, (10, 10, 50, 140))
     elif season == "winter":
         overlay = Image.new("RGBA", img.size, (50, 80, 120, 80))
     elif season == "fall":
-        overlay = Image.new("RGBA", img.size, (160, 90, 30, 60))
+        overlay = Image.new("RGBA", img.size, (160, 80, 25, 60))
     elif season == "summer":
-        enhancer = ImageEnhance.Brightness(img)
-        img = enhancer.enhance(1.2)
+        overlay = Image.new("RGBA", img.size, (255, 255, 200, 40))
 
     img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
     return img
