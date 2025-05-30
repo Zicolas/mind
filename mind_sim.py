@@ -333,6 +333,14 @@ def main():
         else:
             st.session_state.creatures = current[:params["num_creatures"]]
 
+        # Initialize simulation state
+    if "running" not in st.session_state:
+        st.session_state.running = False
+
+    # Play/Pause button
+    if st.button("Play" if not st.session_state.running else "⏸ Pause"):
+        st.session_state.running = not st.session_state.running
+    
     energy_sources = set()
     for _ in range(15):
         ex = random.randint(0, GRID_WIDTH - 1)
