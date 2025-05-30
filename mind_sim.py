@@ -150,11 +150,6 @@ def draw_grid(creatures, energy_sources):
         top_left = (ex * CELL_SIZE + 4, ey * CELL_SIZE + 4)
         bottom_right = ((ex + 1) * CELL_SIZE - 4, (ey + 1) * CELL_SIZE - 4)
         draw.rectangle([top_left, bottom_right], fill=(255, 255, 0))
-        
-    st.session_state.weather_ticks += 1
-    if st.session_state.weather_ticks > 20:
-        st.session_state.weather = random.choice(WEATHER_TYPES)
-        st.session_state.weather_ticks = 0
 
     for c in creatures:
         mood_color = SPECIES_DATA[c.species]["mood_colors"][c.mood]
@@ -170,6 +165,7 @@ def draw_grid(creatures, energy_sources):
 
 st.set_page_config(page_title="Mind Simulation Grid v2", layout="wide")
 st.title("🧠 Mind Simulation Sandbox - v2 with Species & Energy")
+st.markdown(f"### Current Weather: `{st.session_state.weather.upper()}`")
 
 if "sim_params" not in st.session_state:
     st.session_state.sim_params = {
@@ -269,6 +265,11 @@ if st.session_state.running:
 creatures = st.session_state.creatures
 energy_sources = st.session_state.energy_sources
 
+st.session_state.weather_ticks += 1
+if st.session_state.weather_ticks > 20:
+    st.session_state.weather = random.choice(WEATHER_TYPES)
+    st.session_state.weather_ticks = 0
+
 for c in creatures:
     c.update(creatures, energy_sources)
 
@@ -279,5 +280,3 @@ st.image(img, width=GRID_WIDTH * CELL_SIZE)
 st.subheader("Creature Status")
 for c in creatures:
     st.markdown(f"**Creature {c.id}** Species: {c.species} Mood: {c.mood} Energy: {c.energy:.1f} Stress: {c.stress:.2f} {MOOD_DATA[c.mood]['emoji']}")
-    st.markdown(f"### Current Weather: `{st.session_state.weather.upper()}`")
-
