@@ -250,7 +250,7 @@ with st.sidebar:
         st.session_state.energy_sources = []
         st.session_state.regen_zones = []
         st.session_state.running = False
-        st.experimental_rerun()
+        st.rerun()
 
     if st.session_state.running:
         if st.button("Pause"):
