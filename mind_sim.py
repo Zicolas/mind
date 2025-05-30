@@ -233,7 +233,6 @@ def spawn_energy(prob=0.05):
         if (x, y) not in st.session_state.energy_sources:
             st.session_state.energy_sources.append((x, y))
 
-
 # --- Streamlit Setup ---
 st.set_page_config(page_title="Mind Sim", layout="wide")
 
@@ -336,9 +335,6 @@ for pos, intensity in new_trails.items():
 
 st.session_state.creature_trail_map = updated_trails
 
-# Respawn energy randomly
-spawn_energy(prob=0.05)
-
 img = draw_grid(creatures, energy_sources, weather, season, day_night)
 st.image(img, width=GRID_WIDTH * CELL_SIZE)
 
@@ -347,3 +343,5 @@ for c in creatures:
     st.markdown(
         f"**CREATURE {c.id}** — SPECIES: {c.species} | MOOD: {c.mood} | ENERGY: {c.energy:.1f} | STRESS: {c.stress:.2f} | AGE: {c.age} / {MAX_AGE} | GEN: {c.generation} {MOOD_DATA[c.mood]['emoji']}"
     )
+
+spawn_energy(prob=energy_spawn_rate)
