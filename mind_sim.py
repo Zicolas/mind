@@ -73,6 +73,9 @@ class Creature:
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
 
+        self.age = 0
+        self.lifespan = random.randint(60, 120)
+
     def update(self, creatures, energy_sources, weather, season, day_night):
         if weather == "sunny":
             self.stress -= 0.01
@@ -139,6 +142,16 @@ class Creature:
 
         self.energy_history.append(self.energy)
         self.stress_history.append(self.stress)
+
+        self.age += 1
+        if self.age >= self.lifespan or self.energy <= 0:
+            creatures.remove(self)
+            return  # Skip rest of update
+
+        if self.energy > 13 and self.stress < 0.3 and random.random() < 0.01:
+            new_creature = Creature(self.x, self.y, self.species)
+            creatures.append(new_creature)
+            self.energy -= 4  # Reproduction cost
 
 def draw_grid(creatures, energy_sources, weather, season, day_night):
     ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
