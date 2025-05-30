@@ -14,7 +14,7 @@ MAX_ENERGY = 15.0
 MAX_HISTORY = 50
 
 # Weather options
-WEATHER_OPTIONS = ["Sunny", "Cloudy", "Rainy", "Stormy"]
+WEATHER_OPTIONS = ["sunny", "cloudy", "rainy", "stormy"]
 
 # Species data
 SPECIES_DATA = {
@@ -199,7 +199,7 @@ with st.sidebar:
     st.header("Controls")
     st.subheader("Weather")
     st.session_state.weather = st.selectbox(
-        WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
+        "Weather Condition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
     )
 
     st.subheader("Simulation Settings")
