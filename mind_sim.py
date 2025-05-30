@@ -60,6 +60,8 @@ class Creature:
 
         self.x = x
         self.y = y
+        self.age = 0
+        self.lifespan = random.randint(50, 120)
         self.species = species
         self.energy = random.uniform(6, 10)
         self.stress = 0.0
@@ -72,9 +74,6 @@ class Creature:
 
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
-
-        self.age = 0
-        self.lifespan = random.randint(60, 120)
 
     def update(self, creatures, energy_sources, weather, season, day_night):
         if weather == "sunny":
