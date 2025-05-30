@@ -60,7 +60,7 @@ class Creature:
 
     def __init__(self, x, y, species, generation=1):
         self.id = Creature._id_counter
-        Creature._id_counter += 1
+        Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1), random.choice(list(SPECIES_DATA.keys())), generation=1)
 
         self.x = x
         self.y = y
@@ -143,7 +143,7 @@ class Creature:
             return []
 
         if self.energy > REPRODUCTION_THRESHOLD and random.random() < REPRODUCTION_PROB:
-            child = Creature(self.x, self.y, self.species)
+            child = Creature(self.x, self.y, self.species, generation=self.generation + 1)
             child.mutate_from(self)
             offspring.append(child)
             self.energy -= REPRODUCTION_COST
