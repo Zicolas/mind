@@ -324,7 +324,22 @@ for c in creatures:
     key = (c.x, c.y)
     new_trails[key] = TRAIL_FADE_STEPS
 
-# Respawn energy randomly
+# Track consumed energy positions
+consumed_positions = []
+
+# Update each creature
+for creature in st.session_state.creatures:
+    consumed = creature.update(st.session_state.energy_sources)
+    if consumed:
+        consumed_positions.append(consumed)
+
+# Remove consumed energy after all updates
+st.session_state.energy_sources = [
+    pos for pos in st.session_state.energy_sources
+    if pos not in consumed_positions
+]
+
+# Then spawn new energy randomly
 spawn_energy(prob=0.05)
 
 # Decay old trails
