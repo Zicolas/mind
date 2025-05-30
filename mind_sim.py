@@ -159,8 +159,7 @@ def draw_grid(creatures, energy_sources):
 
 # --- Streamlit Setup ---
 
-st.set_page_config(page_title="Eco Sim Route", layout="wide")
-st.title("🌱 Eco Simulation Grid - Real-Time Weather")
+st.set_page_config(page_title="Mind Sim", layout="wide")
 
 if "sim_params" not in st.session_state:
     st.session_state.sim_params = {
@@ -203,7 +202,7 @@ with st.sidebar:
 
     st.subheader("SIMULATION")
 
-    if st.button("RESET"):
+    if st.button("Reset"):
         st.session_state.creatures = []
         for _ in range(st.session_state.sim_params["initial_creature_count"]):
             x = random.randint(0, GRID_WIDTH - 1)
