@@ -324,6 +324,9 @@ for c in creatures:
     key = (c.x, c.y)
     new_trails[key] = TRAIL_FADE_STEPS
 
+# Respawn energy randomly
+spawn_energy(prob=0.05)
+
 # Decay old trails
 old_trails = st.session_state.creature_trail_map
 updated_trails = {}
@@ -343,5 +346,3 @@ for c in creatures:
     st.markdown(
         f"**CREATURE {c.id}** — SPECIES: {c.species} | MOOD: {c.mood} | ENERGY: {c.energy:.1f} | STRESS: {c.stress:.2f} | AGE: {c.age} / {MAX_AGE} | GEN: {c.generation} {MOOD_DATA[c.mood]['emoji']}"
     )
-
-spawn_energy(prob=0.05)
