@@ -82,7 +82,8 @@ class Creature:
         if random.random() < 0.05:
             self.disinhibited = not self.disinhibited
 
-        self.energy -= 0.12
+        # Energy drain adjusted (less harsh)
+        self.energy -= 0.05
 
         if self.energy < 3 and energy_sources:
             closest = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
@@ -147,14 +148,10 @@ def draw_grid(creatures, energy_sources, highlight_id=None):
         bottom_right = ((c.x + 1) * CELL_SIZE - 2, (c.y + 1) * CELL_SIZE - 2)
         draw.rectangle([top_left, bottom_right], fill=color)
 
+        # Highlight selected creature
         if highlight_id is not None and c.id == highlight_id:
-            # Draw highlight border (white, 3 px thick)
-            border_color = (255, 255, 255)
-            for offset in range(3):
-                draw.rectangle([
-                    (c.x * CELL_SIZE + offset, c.y * CELL_SIZE + offset),
-                    ((c.x + 1) * CELL_SIZE - 1 - offset, (c.y + 1) * CELL_SIZE - 1 - offset)
-                ], outline=border_color)
+            # Draw a red border
+            draw.rectangle([top_left, bottom_right], outline=(255, 0, 0), width=3)
 
     return img
 
@@ -197,10 +194,14 @@ if "energy_sources" not in st.session_state:
 if "running" not in st.session_state:
     st.session_state.running = False
 
-selected_creature_id = None
+if "selected_creature_id" not in st.session_state:
+    st.session_state.selected_creature_id = None
 
-# --- Sidebar ---
+# Auto-refresh only when running, every 500ms
+if st.session_state.running:
+    st_autorefresh(interval=500, limit=None, key="autorefresh")
 
+# Sidebar
 with st.sidebar:
     st.header("Controls")
 
@@ -262,27 +263,42 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Creature selection for detail
+    st.subheader("Creature Profiles")
     creature_ids = [c.id for c in st.session_state.creatures]
     if creature_ids:
-        selected_id = st.selectbox("Select Creature by ID", options=creature_ids)
-        selected_creature = next((c for c in st.session_state.creatures if c.id == selected_id), None)
-        selected_creature_id = selected_id
+        # Keep selected creature persistent, default first if none selected
+        if st.session_state.selected_creature_id not in creature_ids:
+            st.session_state.selected_creature_id = creature_ids[0]
+        selected_id = st.selectbox("Select Creature by ID", creature_ids, index=creature_ids.index(st.session_state.selected_creature_id))
+        st.session_state.selected_creature_id = selected_id
 
+        selected_creature = next((c for c in st.session_state.creatures if c.id == selected_id), None)
         if selected_creature:
-            st.write(f"**ID:** {selected_creature.id}")
             st.write(f"**Species:** {selected_creature.species}")
             st.write(f"**Position:** ({selected_creature.x}, {selected_creature.y})")
             st.write(f"**Energy:** {selected_creature.energy:.2f}")
             st.write(f"**Stress:** {selected_creature.stress:.2f}")
             st.write(f"**Mood:** {selected_creature.mood} {MOOD_DATA[selected_creature.mood]['emoji']}")
 
-# --- Main simulation step ---
+            # Plot energy and stress history
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(2, 1, figsize=(4, 3), sharex=True)
+            ax[0].plot(list(selected_creature.energy_history), color="green")
+            ax[0].set_ylabel("Energy")
+            ax[0].set_ylim(0, MAX_ENERGY)
+            ax[1].plot(list(selected_creature.stress_history), color="red")
+            ax[1].set_ylabel("Stress")
+            ax[1].set_ylim(0, 1)
+            ax[1].set_xlabel("Time (steps)")
+            st.pyplot(fig)
+    else:
+        st.write("No creatures to select.")
 
+# Update simulation if running
 if st.session_state.running:
-    for c in st.session_state.creatures:
-        c.update(st.session_state.creatures, st.session_state.energy_sources)
+    for creature in st.session_state.creatures:
+        creature.update(st.session_state.creatures, st.session_state.energy_sources)
 
-# Draw the grid with highlight on the selected creature
-grid_img = draw_grid(st.session_state.creatures, st.session_state.energy_sources, highlight_id=selected_creature_id)
-st.image(grid_img, caption="Simulation Grid", use_container_width=True)
+# Draw the grid and creatures, highlight selected creature
+img = draw_grid(st.session_state.creatures, st.session_state.energy_sources, highlight_id=st.session_state.selected_creature_id)
+st.image(img, use_column_width=True)
