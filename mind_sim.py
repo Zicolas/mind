@@ -22,7 +22,7 @@ DAY_NIGHT_OPTIONS = ["day", "night"]
 SEASON_GROUND_COLORS = {
     "spring": "#799548",
     "summer": "#A2B86C",
-    "fall": "#A6824E",
+    "fall": "#A79548",
     "winter": "#799548",
 }
 
