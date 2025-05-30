@@ -152,7 +152,7 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
     base_color = (30, 30, 30)
 
     if weather == "sunny":
-        base_color = (255, 255, 200)
+        base_color = (125, 150, 70)
     elif weather == "cloudy":
         base_color = (180, 180, 200)
     elif weather == "rainy":
@@ -162,7 +162,7 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
 
     # Apply seasonal tint
     if season == "spring":
-        base_color = tuple(min(255, c + 30) for c in base_color)
+        base_color = tuple(min(105, c + 5) for c in base_color)
     elif season == "autumn" or season == "fall":
         base_color = (base_color[0] + 30, base_color[1], base_color[2])
     elif season == "winter":
