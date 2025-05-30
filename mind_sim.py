@@ -21,8 +21,8 @@ DAY_NIGHT_OPTIONS = ["day", "night"]
 # Color mapping for seasons and overlays
 SEASON_GROUND_COLORS = {
     "spring": "#799548",
-    "summer": "#A0C060",
-    "fall": "#C28746",
+    "summer": "#A2B86C",
+    "fall": "#A6824E",
     "winter": "#769AAE",
 }
 
