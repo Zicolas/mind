@@ -10,7 +10,7 @@ from collections import deque
 GRID_WIDTH = 30
 GRID_HEIGHT = 30
 CELL_SIZE = 20
-MAX_ENERGY = 15.0  # increased max energy
+MAX_ENERGY = 10.0
 MAX_HISTORY = 50  # For stats tracking history length
 
 # Species data (two species with distinct colors)
@@ -46,7 +46,7 @@ class Creature:
         self.x = x
         self.y = y
         self.species = species
-        self.energy = random.uniform(6, 10)  # increased initial energy range
+        self.energy = random.uniform(4, 7)
         self.stress = 0.0
         self.habituation_rate = st.session_state.sim_params['habituation_rate']
         self.inhibition = st.session_state.sim_params['inhibition']
@@ -82,7 +82,7 @@ class Creature:
         if random.random() < 0.05:
             self.disinhibited = not self.disinhibited
 
-        self.energy -= 0.06  # slower energy depletion
+        self.energy -= 0.12
 
         if self.energy < 3 and energy_sources:
             closest = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
@@ -94,7 +94,7 @@ class Creature:
                 self.x = new_x
                 self.y = new_y
             if (self.x, self.y) == closest:
-                self.energy = min(MAX_ENERGY, self.energy + 8)  # bigger recharge
+                self.energy = min(MAX_ENERGY, self.energy + 5)
                 energy_sources.remove(closest)
         else:
             if not self.constricted:
@@ -107,7 +107,7 @@ class Creature:
                     self.y = new_y
 
         if self.energy <= 0:
-            self.energy = random.uniform(6, 10)  # reset with higher initial energy
+            self.energy = random.uniform(4, 7)
             self.stress = 0.0
             self.response = 1.0
             self.disinhibited = False
@@ -125,7 +125,7 @@ class Creature:
         self.energy_history.append(self.energy)
         self.stress_history.append(self.stress)
 
-def draw_grid(creatures, energy_sources):
+def draw_grid(creatures, energy_sources, highlight_id=None):
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), (30, 30, 30))
     draw = ImageDraw.Draw(img)
 
@@ -147,43 +147,16 @@ def draw_grid(creatures, energy_sources):
         bottom_right = ((c.x + 1) * CELL_SIZE - 2, (c.y + 1) * CELL_SIZE - 2)
         draw.rectangle([top_left, bottom_right], fill=color)
 
+        if highlight_id is not None and c.id == highlight_id:
+            # Draw highlight border (white, 3 px thick)
+            border_color = (255, 255, 255)
+            for offset in range(3):
+                draw.rectangle([
+                    (c.x * CELL_SIZE + offset, c.y * CELL_SIZE + offset),
+                    ((c.x + 1) * CELL_SIZE - 1 - offset, (c.y + 1) * CELL_SIZE - 1 - offset)
+                ], outline=border_color)
+
     return img
-
-def serialize_creatures(creatures):
-    return json.dumps([{
-        "id": c.id,
-        "x": c.x,
-        "y": c.y,
-        "species": c.species,
-        "energy": c.energy,
-        "stress": c.stress,
-        "disinhibited": c.disinhibited,
-        "response": c.response,
-        "mood": c.mood,
-    } for c in creatures], indent=2)
-
-def deserialize_creatures(json_str):
-    data = json.loads(json_str)
-    creatures = []
-    Creature._id_counter = 0
-    for cdata in data:
-        c = Creature(cdata["x"], cdata["y"], cdata["species"])
-        c.energy = cdata["energy"]
-        c.stress = cdata["stress"]
-        c.disinhibited = cdata["disinhibited"]
-        c.response = cdata["response"]
-        c.mood = cdata["mood"]
-        c.id = cdata["id"]
-        if c.id >= Creature._id_counter:
-            Creature._id_counter = c.id + 1
-        creatures.append(c)
-    return creatures
-
-def serialize_energy_sources(sources):
-    return json.dumps(sources, indent=2)
-
-def deserialize_energy_sources(json_str):
-    return json.loads(json_str)
 
 # --- Streamlit UI and main loop ---
 
@@ -224,26 +197,25 @@ if "energy_sources" not in st.session_state:
 if "running" not in st.session_state:
     st.session_state.running = False
 
+selected_creature_id = None
+
 # --- Sidebar ---
 
 with st.sidebar:
     st.header("Controls")
 
     st.subheader("Simulation Settings")
-    # Use local variables for slider values to avoid instant overwrite issues
     hab_rate = st.slider("Habituation Rate", 0.7, 1.0, st.session_state.sim_params['habituation_rate'], 0.01)
     inhibition = st.slider("Inhibition", 0.0, 1.0, st.session_state.sim_params['inhibition'], 0.01)
     initial_creatures = st.number_input("Initial Creature Count", 1, 50, st.session_state.sim_params['initial_creature_count'], 1)
     energy_sources_count = st.number_input("Energy Source Count", 0, 100, st.session_state.sim_params['energy_source_count'], 1)
 
-    # Update session state only after input
     st.session_state.sim_params['habituation_rate'] = hab_rate
     st.session_state.sim_params['inhibition'] = inhibition
     st.session_state.sim_params['initial_creature_count'] = initial_creatures
     st.session_state.sim_params['energy_source_count'] = energy_sources_count
 
     if st.button("Reset Creatures and Energy"):
-        # Reset creatures
         creatures = []
         attempts = 0
         while len(creatures) < st.session_state.sim_params["initial_creature_count"] and attempts < 200:
@@ -255,7 +227,6 @@ with st.sidebar:
             attempts += 1
         st.session_state.creatures = creatures
 
-        # Reset energy sources
         energy_sources = set()
         attempts = 0
         while len(energy_sources) < st.session_state.sim_params["energy_source_count"] and attempts < 300:
@@ -289,38 +260,29 @@ with st.sidebar:
                 break
             attempts += 1
 
-    st.subheader("Creature Profiles")
+    st.markdown("---")
+
+    # Creature selection for detail
     creature_ids = [c.id for c in st.session_state.creatures]
     if creature_ids:
         selected_id = st.selectbox("Select Creature by ID", options=creature_ids)
         selected_creature = next((c for c in st.session_state.creatures if c.id == selected_id), None)
+        selected_creature_id = selected_id
+
         if selected_creature:
             st.write(f"**ID:** {selected_creature.id}")
             st.write(f"**Species:** {selected_creature.species}")
             st.write(f"**Position:** ({selected_creature.x}, {selected_creature.y})")
-            st.write(f"**Mood:** {selected_creature.mood} {MOOD_DATA[selected_creature.mood]['emoji']}")
             st.write(f"**Energy:** {selected_creature.energy:.2f}")
             st.write(f"**Stress:** {selected_creature.stress:.2f}")
-            st.write(f"**Disinhibited:** {selected_creature.disinhibited}")
+            st.write(f"**Mood:** {selected_creature.mood} {MOOD_DATA[selected_creature.mood]['emoji']}")
 
-            # Show energy and stress history chart
-            import pandas as pd
-            df = pd.DataFrame({
-                "Energy": list(selected_creature.energy_history),
-                "Stress": list(selected_creature.stress_history),
-            })
-            st.line_chart(df)
-
-# --- Main Simulation Loop ---
+# --- Main simulation step ---
 
 if st.session_state.running:
-    # Autorefresh page every 500 ms for animation effect
-    st_autorefresh(interval=500, limit=None, key="autorefresh")
-
-    # Update all creatures
     for c in st.session_state.creatures:
         c.update(st.session_state.creatures, st.session_state.energy_sources)
 
-# Draw the grid and creatures
-grid_img = draw_grid(st.session_state.creatures, st.session_state.energy_sources)
+# Draw the grid with highlight on the selected creature
+grid_img = draw_grid(st.session_state.creatures, st.session_state.energy_sources, highlight_id=selected_creature_id)
 st.image(grid_img, caption="Simulation Grid", use_container_width=True)
