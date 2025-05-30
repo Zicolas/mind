@@ -345,7 +345,7 @@ def main():
 
     img = draw_grid(st.session_state.creatures, energy_sources, params["weather"], params["season"], params["day_night"], params["zones"])
 
-    st.image(img, use_column_width=True)
+    st.image(img, use_container_width =True)
 
     alive_count = sum(1 for c in st.session_state.creatures if c.alive)
     st.write(f"Creatures alive: {alive_count}")
