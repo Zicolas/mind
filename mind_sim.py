@@ -261,11 +261,14 @@ def draw_grid(creatures, energy_sources, weather, season, day_night, zones):
         except:
             font = ImageFont.load_default()
 
-        # Use getsize instead of textsize
-        w, h = font.getsize(mood_emoji)
+        # Use draw.textbbox to get size of the emoji
+        bbox = draw.textbbox((0, 0), mood_emoji, font=font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
 
-        # Draw emoji centered on the creature
+        # Draw the emoji centered
         draw.text((cx - w // 2, cy - h // 2), mood_emoji, fill=(0, 0, 0), font=font)
+
 
     if day_night == "night":
         overlay = Image.new("RGBA", img.size, (0, 0, 30, 120))
