@@ -337,16 +337,26 @@ def init_zones():
 # --- Main Streamlit interface ---
 
 def main():
-    # Initialize session state keys
+    if "sim_params" not in st.session_state:
+        st.session_state.sim_params = {
+            "habituation_rate": 0.95,
+            "inhibition": 0.2,
+        }
+
     if "play_sim" not in st.session_state:
         st.session_state.play_sim = False
 
-    if st.session_state.play_sim:
-        st_autorefresh(interval=200, limit=None, key="simulation_autorefresh")
+    if "creatures" not in st.session_state:
+        st.session_state.creatures = []
 
-    st.title("Extended Creature Simulation with Aging, Memory, and Social Behavior")
+    if "energy_sources" not in st.session_state:
+        st.session_state.energy_sources = []
 
-    # initialize session state variables ...
+    if "zones" not in st.session_state:
+        st.session_state.zones = init_zones()
+
+    if "creature_trail_map" not in st.session_state:
+        st.session_state.creature_trail_map = {}
     
     with st.sidebar:
         st.header("Simulation Parameters")
