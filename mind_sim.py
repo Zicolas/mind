@@ -338,7 +338,7 @@ def main():
         st.session_state.running = False
 
     # Play/Pause button
-    if st.button("Play" if not st.session_state.running else "⏸ Pause"):
+    if st.button("Play" if not st.session_state.running else "Pause"):
         st.session_state.running = not st.session_state.running
     
     energy_sources = set()
