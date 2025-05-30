@@ -300,23 +300,46 @@ def init_zones():
     for x in range(GRID_WIDTH):
         col = []
         for y in range(GRID_HEIGHT):
+            # Propose zone type with preference for normal
+            zone_type = "normal"
             r = random.random()
+
+            # To increase spacing of water:
+            # We'll only add water if no neighbor is water already
+            def has_water_neighbor(xi, yi):
+                for dx in [-1,0,1]:
+                    for dy in [-1,0,1]:
+                        nx, ny = xi+dx, yi+dy
+                        if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
+                            if zones[nx][ny] == "water":
+                                return True
+                return False
+
             if r < 0.05:
-                col.append("water")
+                # Only set water if no neighbor water
+                if not has_water_neighbor(x, y):
+                    zone_type = "water"
+                else:
+                    zone_type = "normal"
             elif r < 0.1:
-                col.append("obstacle")
+                zone_type = "obstacle"
             elif r < 0.15:
-                col.append("cold_zone")
+                zone_type = "cold_zone"
             elif r < 0.2:
-                col.append("hot_zone")
+                zone_type = "hot_zone"
             else:
-                col.append("normal")
+                zone_type = "normal"
+
+            col.append(zone_type)
         zones.append(col)
     return zones
 
 # --- Main Streamlit interface ---
 
 def main():
+    if st.session_state.play_sim:
+    st_autorefresh(interval=200, limit=None, key="simulation_autorefresh")
+
     st.title("Extended Creature Simulation with Aging, Memory, and Social Behavior")
 
     if "creatures" not in st.session_state:
@@ -348,6 +371,11 @@ def main():
         st.session_state.season = st.selectbox("Season", SEASON_OPTIONS, index=SEASON_OPTIONS.index(st.session_state.season))
         st.session_state.day_night = st.selectbox("Day/Night", DAY_NIGHT_OPTIONS, index=DAY_NIGHT_OPTIONS.index(st.session_state.day_night))
 
+        if "play_sim" not in st.session_state:
+        st.session_state.play_sim = False
+
+        st.session_state.play_sim = st.checkbox("Play simulation", value=st.session_state.play_sim)
+        
         if st.button("Reset Simulation"):
             st.session_state.creatures = []
             st.session_state.energy_sources = []
@@ -372,7 +400,7 @@ def main():
                 if st.session_state.zones[x][y] != "obstacle":
                     st.session_state.energy_sources.append((x, y))
 
-    # Update creatures
+    if st.session_state.play_sim:
     for c in st.session_state.creatures:
         c.update(st.session_state.creatures, st.session_state.energy_sources,
                  st.session_state.weather, st.session_state.season,
