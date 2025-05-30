@@ -226,6 +226,14 @@ def mutate(self):
         self.MAX_AGE += random.randint(-10, 10)
         self.MAX_AGE = max(50, min(150, self.MAX_AGE))
 
+def spawn_energy(prob=0.05):
+    if random.random() < prob:
+        x = random.randint(0, GRID_WIDTH - 1)
+        y = random.randint(0, GRID_HEIGHT - 1)
+        if (x, y) not in st.session_state.energy_sources:
+            st.session_state.energy_sources.append((x, y))
+
+
 # --- Streamlit Setup ---
 st.set_page_config(page_title="Mind Sim", layout="wide")
 
@@ -254,12 +262,7 @@ if "creatures" not in st.session_state:
     ]
 
 if "energy_sources" not in st.session_state:
-    energy_sources = set()
-    while len(energy_sources) < st.session_state.sim_params["energy_source_count"]:
-        ex = random.randint(0, GRID_WIDTH - 1)
-        ey = random.randint(0, GRID_HEIGHT - 1)
-        energy_sources.add((ex, ey))
-    st.session_state.energy_sources = list(energy_sources)
+    st.session_state.energy_sources = []
 
 if "running" not in st.session_state:
     st.session_state.running = False
@@ -287,6 +290,8 @@ with st.sidebar:
         st.session_state.energy_sources = list(energy_sources)
         st.session_state.running = False
 
+    energy_spawn_rate = st.slider("Energy Spawn Probability", 0.0, 1.0, 0.05, 0.01)
+    
     if st.session_state.running:
         if st.button("Pause"):
             st.session_state.running = False
@@ -330,6 +335,9 @@ for pos, intensity in new_trails.items():
     updated_trails[pos] = TRAIL_FADE_STEPS
 
 st.session_state.creature_trail_map = updated_trails
+
+# Respawn energy randomly
+spawn_energy(prob=0.05)
 
 img = draw_grid(creatures, energy_sources, weather, season, day_night)
 st.image(img, width=GRID_WIDTH * CELL_SIZE)
