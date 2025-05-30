@@ -73,46 +73,99 @@ class Creature:
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
 
-    def update(self, creatures, energy_sources, weather, season, day_night):
+        # NEW: Aging and lifecycle
+        self.age = 0
+        self.lifespan = random.randint(50, 150)
+
+        # NEW: Memory of known energy sources (positions)
+        self.known_energy_sources = set()
+
+        # NEW: Mutation factor affecting energy loss rate and stress gain
+        self.mutation_factor = 1.0
+
+    def update(self, creatures, energy_sources, weather, season, day_night, env_zones):
+        # Aging
+        self.age += 1
+        if self.age > self.lifespan or self.energy <= 0:
+            # Creature dies and respawns fresh
+            self.x = random.randint(0, GRID_WIDTH - 1)
+            self.y = random.randint(0, GRID_HEIGHT - 1)
+            self.energy = random.uniform(6, 10)
+            self.stress = 0.0
+            self.response = 1.0
+            self.disinhibited = False
+            self.age = 0
+            self.lifespan = random.randint(50, 150)
+            self.known_energy_sources.clear()
+            self.mutation_factor = 1.0
+            self.mood = "neutral"
+            return
+
+        # Weather stress adjustment (scaled by mutation_factor)
         if weather == "sunny":
-            self.stress -= 0.01
+            self.stress -= 0.01 * self.mutation_factor
         elif weather == "cloudy":
             pass
         elif weather == "rainy":
-            self.stress += 0.01
+            self.stress += 0.01 * self.mutation_factor
         elif weather == "stormy":
-            self.stress += 0.03
+            self.stress += 0.03 * self.mutation_factor
 
         self.stress = min(1.0, max(0.0, self.stress))
         self.response *= self.habituation_rate
         if not self.disinhibited:
             self.response -= self.inhibition
 
-        neighbors = [c for c in creatures if abs(c.x - self.x) <= 1 and abs(c.y - self.y) <= 1 and c.id != self.id]
+        # Social stress influence: communicate stress to neighbors
+        neighbors = [c for c in creatures if abs(c.x - self.x) <= 2 and abs(c.y - self.y) <= 2 and c.id != self.id]
         if neighbors:
             avg_neighbor_stress = sum(n.stress for n in neighbors) / len(neighbors)
-            self.stress += (avg_neighbor_stress - self.stress) * 0.05
+            # Social signal effect on stress
+            self.stress += (avg_neighbor_stress - self.stress) * 0.1 * self.mutation_factor
 
+        # Add some noise
         self.stress = min(1.0, max(0.0, self.stress + (random.random() - 0.5) * 0.05))
+
         self.constricted = self.stress > 0.7
         if random.random() < 0.05:
             self.disinhibited = not self.disinhibited
 
-        self.energy -= 0.06
+        # Environment zone effect: e.g. water reduces stress, hot zones increase stress
+        zone = env_zones[self.y][self.x]
+        if zone == "water":
+            self.stress = max(0.0, self.stress - 0.02)
+            self.energy = min(MAX_ENERGY, self.energy + 0.05)
+        elif zone == "hot":
+            self.stress = min(1.0, self.stress + 0.02 * self.mutation_factor)
 
-        if self.energy < 3 and energy_sources:
-            closest = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
-            dx = np.sign(closest[0] - self.x)
-            dy = np.sign(closest[1] - self.y)
+        # Energy consumption adjusted by mutation factor
+        self.energy -= 0.06 * self.mutation_factor
+
+        # Energy-seeking logic using memory
+        known_sources = [pos for pos in self.known_energy_sources if pos in energy_sources]
+        if self.energy < 3 and (energy_sources or known_sources):
+            # Prefer known sources if any
+            if known_sources:
+                target = min(known_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
+            else:
+                target = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
+                self.known_energy_sources.add(target)  # Learn new source
+
+            dx = np.sign(target[0] - self.x)
+            dy = np.sign(target[1] - self.y)
             new_x = min(max(self.x + int(dx), 0), GRID_WIDTH - 1)
             new_y = min(max(self.y + int(dy), 0), GRID_HEIGHT - 1)
             if not any(c.x == new_x and c.y == new_y for c in creatures):
                 self.x = new_x
                 self.y = new_y
-            if (self.x, self.y) == closest:
+            if (self.x, self.y) == target:
                 self.energy = min(MAX_ENERGY, self.energy + 8)
-                energy_sources.remove(closest)
+                if target in energy_sources:
+                    energy_sources.remove(target)
+                if target in self.known_energy_sources:
+                    self.known_energy_sources.remove(target)
         else:
+            # Random walk if not constricted
             if not self.constricted:
                 dx = random.choice([-1, 0, 1])
                 dy = random.choice([-1, 0, 1])
@@ -122,12 +175,7 @@ class Creature:
                     self.x = new_x
                     self.y = new_y
 
-        if self.energy <= 0:
-            self.energy = random.uniform(6, 10)
-            self.stress = 0.0
-            self.response = 1.0
-            self.disinhibited = False
-
+        # Mood update
         if self.stress < 0.3 and self.energy > 6:
             self.mood = "happy"
         elif self.stress > 0.7:
@@ -136,6 +184,12 @@ class Creature:
             self.mood = "stressed"
         else:
             self.mood = "neutral"
+
+        # Mutation from stress: if stress is high for many steps, increase mutation_factor slightly
+        if len(self.stress_history) == MAX_HISTORY:
+            avg_stress = sum(self.stress_history) / MAX_HISTORY
+            if avg_stress > 0.6:
+                self.mutation_factor = min(2.0, self.mutation_factor + 0.01)
 
         self.energy_history.append(self.energy)
         self.stress_history.append(self.stress)
