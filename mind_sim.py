@@ -199,7 +199,7 @@ with st.sidebar:
     st.header("Controls")
     st.subheader("Weather")
     st.session_state.weather = st.selectbox(
-        "Weather Condition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
+        "Weather", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
     )
 
     st.subheader("Simulation Settings")
