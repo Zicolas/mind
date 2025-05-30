@@ -248,18 +248,26 @@ if "running" not in st.session_state:
 
 with st.sidebar:
     st.header("WEATHER")
+    # Ensure the weather in session_state is valid
+    if st.session_state.weather not in WEATHER_OPTIONS:
+        st.session_state.weather = WEATHER_OPTIONS[0]  # default to 'sunny'
+
     st.session_state.weather = st.selectbox(
         "Current Condition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
     )
-
+    
     st.subheader("SEASON")
+    if "season" not in st.session_state:
+        st.session_state.season = SEASON_OPTIONS[0]
     st.session_state.season = st.selectbox(
-        "Season", SEASON_OPTIONS, index=SEASON_OPTIONS.index(st.session_state.season)
+        "Current Season", SEASON_OPTIONS, index=SEASON_OPTIONS.index(st.session_state.season)
     )
-
+    
     st.subheader("DAY / NIGHT")
+    if "day_night" not in st.session_state:
+        st.session_state.day_night = DAY_NIGHT_OPTIONS[0]
     st.session_state.day_night = st.selectbox(
-        "Cycle", DAY_NIGHT_OPTIONS, index=DAY_NIGHT_OPTIONS.index(st.session_state.day_night)
+        "Day or Night", DAY_NIGHT_OPTIONS, index=DAY_NIGHT_OPTIONS.index(st.session_state.day_night)
     )
 
     st.subheader("SIMULATION")
