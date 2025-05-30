@@ -337,6 +337,10 @@ def init_zones():
 # --- Main Streamlit interface ---
 
 def main():
+    # Initialize session state keys
+    if "play_sim" not in st.session_state:
+        st.session_state.play_sim = False
+
     if st.session_state.play_sim:
         st_autorefresh(interval=200, limit=None, key="simulation_autorefresh")
 
