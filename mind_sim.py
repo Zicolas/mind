@@ -139,7 +139,7 @@ class Creature:
         self.stress_history.append(self.stress)
 
 def draw_grid(creatures, energy_sources, weather, season, day_night):
-    ground_color = SEASON_GROUND_COLORS.get(season, "#799548")
+    ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), ground_color)
     draw = ImageDraw.Draw(img)
 
