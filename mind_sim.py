@@ -28,6 +28,11 @@ SEASON_GROUND_COLORS = {
     "winter": "#799548",
 }
 
+# Environmental zones - added for water, obstacles, temperature zones
+# Each cell in grid can be: 'normal', 'water', 'obstacle', 'cold_zone', 'hot_zone'
+# We'll generate them once on reset, store in session_state
+ZONE_TYPES = ['normal', 'water', 'obstacle', 'cold_zone', 'hot_zone']
+
 # Species data
 SPECIES_DATA = {
     "A": {"base_color": (0, 200, 0), "mood_colors": {
@@ -51,6 +56,8 @@ MOOD_DATA = {
     "angry": {"emoji": "😡"},
 }
 
+# ---- CREATURE CLASS UPDATED ----
+
 class Creature:
     _id_counter = 0
 
@@ -73,109 +80,115 @@ class Creature:
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
 
-        # NEW: Aging and lifecycle
+        # --- NEW: Aging & lifecycle ---
         self.age = 0
-        self.lifespan = random.randint(50, 150)
+        self.lifespan = random.randint(80, 120)  # lifespan in update cycles
+        self.alive = True
 
-        # NEW: Memory of known energy sources (positions)
-        self.known_energy_sources = set()
+        # --- NEW: Memory of energy locations ---
+        self.memory = set()  # set of (x, y) energy locations seen before
 
-        # NEW: Mutation factor affecting energy loss rate and stress gain
-        self.mutation_factor = 1.0
+        # --- NEW: Mutation due to stress ---
+        self.mutated = False
+        self.mutation_counter = 0  # counts updates of prolonged stress
+        self.mutation_threshold = 50  # after this many stressed cycles, mutate
 
-    def update(self, creatures, energy_sources, weather, season, day_night, env_zones):
+    def update(self, creatures, energy_sources, weather, season, day_night, zones):
+        if not self.alive:
+            return  # dead creatures do nothing
+
         # Aging
         self.age += 1
         if self.age > self.lifespan or self.energy <= 0:
-            # Creature dies and respawns fresh
-            self.x = random.randint(0, GRID_WIDTH - 1)
-            self.y = random.randint(0, GRID_HEIGHT - 1)
-            self.energy = random.uniform(6, 10)
-            self.stress = 0.0
-            self.response = 1.0
-            self.disinhibited = False
-            self.age = 0
-            self.lifespan = random.randint(50, 150)
-            self.known_energy_sources.clear()
-            self.mutation_factor = 1.0
-            self.mood = "neutral"
+            self.alive = False
             return
 
-        # Weather stress adjustment (scaled by mutation_factor)
+        # Environmental zone effects
+        current_zone = zones[self.x][self.y]
+        if current_zone == "water":
+            # Energy drain if in water and species B (just an example)
+            if self.species == "B":
+                self.energy -= 0.05  # water drains energy for B
+            else:
+                self.energy += 0.02  # species A gains small energy in water (maybe hydration)
+        elif current_zone == "obstacle":
+            # Can't move here; handled by movement checks later
+            self.stress += 0.02  # stress increased by obstacle contact
+        elif current_zone == "cold_zone":
+            self.stress += 0.01
+        elif current_zone == "hot_zone":
+            self.stress += 0.01
+
+        # Weather stress influence (unchanged)
         if weather == "sunny":
-            self.stress -= 0.01 * self.mutation_factor
+            self.stress -= 0.01
         elif weather == "cloudy":
             pass
         elif weather == "rainy":
-            self.stress += 0.01 * self.mutation_factor
+            self.stress += 0.01
         elif weather == "stormy":
-            self.stress += 0.03 * self.mutation_factor
+            self.stress += 0.03
 
         self.stress = min(1.0, max(0.0, self.stress))
         self.response *= self.habituation_rate
         if not self.disinhibited:
             self.response -= self.inhibition
 
-        # Social stress influence: communicate stress to neighbors
-        neighbors = [c for c in creatures if abs(c.x - self.x) <= 2 and abs(c.y - self.y) <= 2 and c.id != self.id]
+        # --- SOCIAL BEHAVIOR / COMMUNICATION (stress signaling neighbors) ---
+        neighbors = [c for c in creatures if abs(c.x - self.x) <= 1 and abs(c.y - self.y) <= 1 and c.id != self.id and c.alive]
         if neighbors:
             avg_neighbor_stress = sum(n.stress for n in neighbors) / len(neighbors)
-            # Social signal effect on stress
-            self.stress += (avg_neighbor_stress - self.stress) * 0.1 * self.mutation_factor
+            # Stress moves toward neighbors' stress (stress contagion)
+            self.stress += (avg_neighbor_stress - self.stress) * 0.05
 
-        # Add some noise
         self.stress = min(1.0, max(0.0, self.stress + (random.random() - 0.5) * 0.05))
-
         self.constricted = self.stress > 0.7
         if random.random() < 0.05:
             self.disinhibited = not self.disinhibited
 
-        # Environment zone effect: e.g. water reduces stress, hot zones increase stress
-        zone = env_zones[self.y][self.x]
-        if zone == "water":
-            self.stress = max(0.0, self.stress - 0.02)
-            self.energy = min(MAX_ENERGY, self.energy + 0.05)
-        elif zone == "hot":
-            self.stress = min(1.0, self.stress + 0.02 * self.mutation_factor)
+        # Energy decay each step
+        self.energy -= 0.06
 
-        # Energy consumption adjusted by mutation factor
-        self.energy -= 0.06 * self.mutation_factor
-
-        # Energy-seeking logic using memory
-        known_sources = [pos for pos in self.known_energy_sources if pos in energy_sources]
-        if self.energy < 3 and (energy_sources or known_sources):
-            # Prefer known sources if any
-            if known_sources:
-                target = min(known_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
+        # Movement & energy source seeking
+        if self.energy < 3 and energy_sources:
+            # Prefer locations remembered if still valid
+            remembered_sources = [pos for pos in self.memory if pos in energy_sources]
+            if remembered_sources:
+                closest = min(remembered_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
             else:
-                target = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
-                self.known_energy_sources.add(target)  # Learn new source
+                closest = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
 
-            dx = np.sign(target[0] - self.x)
-            dy = np.sign(target[1] - self.y)
+            dx = np.sign(closest[0] - self.x)
+            dy = np.sign(closest[1] - self.y)
             new_x = min(max(self.x + int(dx), 0), GRID_WIDTH - 1)
             new_y = min(max(self.y + int(dy), 0), GRID_HEIGHT - 1)
-            if not any(c.x == new_x and c.y == new_y for c in creatures):
+
+            # Check if new position is obstacle
+            if zones[new_x][new_y] != "obstacle" and not any(c.x == new_x and c.y == new_y and c.alive for c in creatures):
                 self.x = new_x
                 self.y = new_y
-            if (self.x, self.y) == target:
-                self.energy = min(MAX_ENERGY, self.energy + 8)
-                if target in energy_sources:
-                    energy_sources.remove(target)
-                if target in self.known_energy_sources:
-                    self.known_energy_sources.remove(target)
-        else:
-            # Random walk if not constricted
-            if not self.constricted:
-                dx = random.choice([-1, 0, 1])
-                dy = random.choice([-1, 0, 1])
-                new_x = min(max(self.x + dx, 0), GRID_WIDTH - 1)
-                new_y = min(max(self.y + dy, 0), GRID_HEIGHT - 1)
-                if not any(c.x == new_x and c.y == new_y for c in creatures):
-                    self.x = new_x
-                    self.y = new_y
 
-        # Mood update
+            # If reached energy source
+            if (self.x, self.y) == closest:
+                self.energy = min(MAX_ENERGY, self.energy + 8)
+                energy_sources.remove(closest)
+                # Add to memory (learning)
+                self.memory.add(closest)
+
+        else:
+            # Random move if not constrained and no urgent energy need
+            if not self.constricted:
+                for _ in range(5):  # try up to 5 random moves to avoid obstacles
+                    dx = random.choice([-1, 0, 1])
+                    dy = random.choice([-1, 0, 1])
+                    new_x = min(max(self.x + dx, 0), GRID_WIDTH - 1)
+                    new_y = min(max(self.y + dy, 0), GRID_HEIGHT - 1)
+                    if zones[new_x][new_y] != "obstacle" and not any(c.x == new_x and c.y == new_y and c.alive for c in creatures):
+                        self.x = new_x
+                        self.y = new_y
+                        break
+
+        # Mood calculation (unchanged)
         if self.stress < 0.3 and self.energy > 6:
             self.mood = "happy"
         elif self.stress > 0.7:
@@ -185,41 +198,41 @@ class Creature:
         else:
             self.mood = "neutral"
 
-        # Mutation from stress: if stress is high for many steps, increase mutation_factor slightly
-        if len(self.stress_history) == MAX_HISTORY:
-            avg_stress = sum(self.stress_history) / MAX_HISTORY
-            if avg_stress > 0.6:
-                self.mutation_factor = min(2.0, self.mutation_factor + 0.01)
+        # --- REPRODUCTION (new) ---
+        # If energy high, stress low, and chance, reproduce a new creature nearby if space
+        if self.energy > 10 and self.stress < 0.4:
+            empty_neighbors = [(self.x + dx, self.y + dy) for dx in [-1,0,1] for dy in [-1,0,1]
+                               if 0 <= self.x+dx < GRID_WIDTH and 0 <= self.y+dy < GRID_HEIGHT]
+            empty_neighbors = [pos for pos in empty_neighbors if
+                               not any(c.x == pos[0] and c.y == pos[1] and c.alive for c in creatures)
+                               and zones[pos[0]][pos[1]] != "obstacle"]
+            if empty_neighbors and random.random() < 0.02:  # low chance per update
+                nx, ny = random.choice(empty_neighbors)
+                # Spawn new creature of same species
+                offspring = Creature(nx, ny, self.species)
+                offspring.energy = self.energy / 2
+                offspring.stress = self.stress / 2
+                self.energy /= 2
+                creatures.append(offspring)
 
+        # --- STRESS-DRIVEN MUTATION ---
+        if self.stress > 0.7:
+            self.mutation_counter += 1
+            if self.mutation_counter > self.mutation_threshold and not self.mutated:
+                self.mutated = True
+                # Mutation changes inhibition or habituation_rate slightly
+                self.inhibition = max(0, min(1, self.inhibition + random.uniform(-0.1, 0.1)))
+                self.habituation_rate = max(0.8, min(1, self.habituation_rate + random.uniform(-0.05, 0.05)))
+        else:
+            # Reset mutation counter if stress low
+            self.mutation_counter = max(0, self.mutation_counter - 2)
+
+        # Append histories for plotting or info
         self.energy_history.append(self.energy)
         self.stress_history.append(self.stress)
 
-env_zones = st.session_state.env_zones
-
-new_creatures = []
-for c in creatures:
-    c.update(creatures, energy_sources, weather, season, day_night, env_zones)
-
-    # Reproduction: if energy high and low stress, create offspring nearby if space
-    if c.energy > 12 and c.stress < 0.3:
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                nx = c.x + dx
-                ny = c.y + dy
-                if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
-                    if not any(cr.x == nx and cr.y == ny for cr in creatures + new_creatures):
-                        offspring = Creature(nx, ny, c.species)
-                        offspring.energy = c.energy / 2
-                        c.energy /= 2
-                        new_creatures.append(offspring)
-                        break
-            else:
-                continue
-            break
-
-creatures.extend(new_creatures)
-
-def draw_grid(creatures, energy_sources, weather, season, day_night, env_zones):
+# --- Draw grid updated with zones visualization ---
+def draw_grid(creatures, energy_sources, weather, season, day_night, zones):
     ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), ground_color)
     draw = ImageDraw.Draw(img)
@@ -228,6 +241,22 @@ def draw_grid(creatures, energy_sources, weather, season, day_night, env_zones):
         draw.line([(x * CELL_SIZE, 0), (x * CELL_SIZE, GRID_HEIGHT * CELL_SIZE)], fill=(50, 50, 50))
     for y in range(GRID_HEIGHT + 1):
         draw.line([(0, y * CELL_SIZE), (GRID_WIDTH * CELL_SIZE, y * CELL_SIZE)], fill=(50, 50, 50))
+
+    # Draw environmental zones
+    for x in range(GRID_WIDTH):
+        for y in range(GRID_HEIGHT):
+            zone = zones[x][y]
+            top_left = (x * CELL_SIZE, y * CELL_SIZE)
+            bottom_right = ((x + 1) * CELL_SIZE, (y + 1) * CELL_SIZE)
+
+            if zone == "water":
+                draw.rectangle([top_left, bottom_right], fill=(64, 164, 223))  # blueish
+            elif zone == "obstacle":
+                draw.rectangle([top_left, bottom_right], fill=(80, 80, 80))  # gray
+            elif zone == "cold_zone":
+                draw.rectangle([top_left, bottom_right], fill=(173, 216, 230))  # light blue
+            elif zone == "hot_zone":
+                draw.rectangle([top_left, bottom_right], fill=(255, 160, 122))  # light red-orange
 
     for ex, ey in energy_sources:
         top_left = (ex * CELL_SIZE + 4, ey * CELL_SIZE + 4)
@@ -240,19 +269,10 @@ def draw_grid(creatures, energy_sources, weather, season, day_night, env_zones):
         fade_color = (100, 100, 100, int(255 * (intensity / TRAIL_FADE_STEPS)))
         trail_overlay = Image.new("RGBA", (CELL_SIZE, CELL_SIZE), fade_color)
         img.paste(trail_overlay, (tx * CELL_SIZE, ty * CELL_SIZE), trail_overlay)
-
-    # Draw environment zones overlays
-    for y in range(GRID_HEIGHT):
-        for x in range(GRID_WIDTH):
-            zone = env_zones[y][x]
-            if zone == "water":
-                water_overlay = Image.new("RGBA", (CELL_SIZE, CELL_SIZE), (0, 0, 255, 100))
-                img.paste(water_overlay, (x * CELL_SIZE, y * CELL_SIZE), water_overlay)
-            elif zone == "hot":
-                hot_overlay = Image.new("RGBA", (CELL_SIZE, CELL_SIZE), (255, 50, 0, 100))
-                img.paste(hot_overlay, (x * CELL_SIZE, y * CELL_SIZE), hot_overlay)
     
     for c in creatures:
+        if not c.alive:
+            continue  # skip dead creatures
         mood_color = SPECIES_DATA[c.species]["mood_colors"][c.mood]
         brightness = int(100 + 155 * min(1.0, c.energy / MAX_ENERGY))
         color = tuple(min(255, int(brightness * (v / 255))) for v in mood_color)
@@ -260,155 +280,138 @@ def draw_grid(creatures, energy_sources, weather, season, day_night, env_zones):
         bottom_right = ((c.x + 1) * CELL_SIZE - 2, (c.y + 1) * CELL_SIZE - 2)
         draw.rectangle([top_left, bottom_right], fill=color)
 
+        # Draw a small border if mutated
+        if c.mutated:
+            draw.rectangle([top_left, bottom_right], outline=(255, 0, 255), width=2)
+
     # Weather and season visuals
     weather_icons = {"sunny": "☀️", "cloudy": "☁️", "rainy": "🌧️", "stormy": "⛈️"}
     font = ImageFont.load_default()
     draw.text((5, 5), weather_icons.get(weather, ""), fill="white", font=font)
     draw.rectangle([5, 25, 90, 40], fill=(255, 255, 255))
     draw.text((10, 27), season.capitalize(), fill="black", font=font)
-    draw.rectangle([5, 45, 90, 60], fill=(0, 0, 0, 150))
-    draw.text((10, 47), day_night.capitalize(), fill=(255, 255, 255), font=font)
+    draw.text((10, 42), day_night.capitalize(), fill="black", font=font)
 
-    # Apply overlays
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    if day_night == "night":
-        overlay = Image.new("RGBA", img.size, (10, 10, 50, 140))
-    elif season == "winter":
-        overlay = Image.new("RGBA", img.size, (50, 80, 120, 80))
-    elif season == "fall":
-        overlay = Image.new("RGBA", img.size, (160, 80, 25, 60))
-    elif season == "summer":
-        overlay = Image.new("RGBA", img.size, (255, 255, 200, 40))
-
-    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
     return img
 
-# --- Streamlit Setup ---
-st.set_page_config(page_title="Mind Sim", layout="wide")
-
-# Session state defaults
-if "sim_params" not in st.session_state:
-    st.session_state.sim_params = {
-        "habituation_rate": 0.95,
-        "inhibition": 0.3,
-        "initial_creature_count": 12,
-        "energy_source_count": 20,
-    }
-
-if "weather" not in st.session_state:
-    st.session_state.weather = "sunny"
-
-if "season" not in st.session_state:
-    st.session_state.season = "spring"
-
-if "day_night" not in st.session_state:
-    st.session_state.day_night = "day"
-
-if "creatures" not in st.session_state:
-    st.session_state.creatures = [
-        Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1), random.choice(list(SPECIES_DATA.keys())))
-        for _ in range(st.session_state.sim_params["initial_creature_count"])
-    ]
-
-if "energy_sources" not in st.session_state:
-    energy_sources = set()
-    while len(energy_sources) < st.session_state.sim_params["energy_source_count"]:
-        ex = random.randint(0, GRID_WIDTH - 1)
-        ey = random.randint(0, GRID_HEIGHT - 1)
-        energy_sources.add((ex, ey))
-    st.session_state.energy_sources = list(energy_sources)
-
-if "running" not in st.session_state:
-    st.session_state.running = False
-
-# Sidebar UI
-with st.sidebar:
-    st.header("WEATHER")
-    st.session_state.weather = st.selectbox("Current Condition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather))
-    st.subheader("SEASON")
-    st.session_state.season = st.selectbox("Current Season", SEASON_OPTIONS, index=SEASON_OPTIONS.index(st.session_state.season))
-    st.subheader("DAY / NIGHT")
-    st.session_state.day_night = st.selectbox("Day or Night", DAY_NIGHT_OPTIONS, index=DAY_NIGHT_OPTIONS.index(st.session_state.day_night))
-
-    st.subheader("SIMULATION")
-    if st.button("Reset"):
-        st.session_state.creatures = [
-            Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1), random.choice(list(SPECIES_DATA.keys())))
-            for _ in range(st.session_state.sim_params["initial_creature_count"])
-        ]
-        energy_sources = set()
-        while len(energy_sources) < st.session_state.sim_params["energy_source_count"]:
-            ex = random.randint(0, GRID_WIDTH - 1)
-            ey = random.randint(0, GRID_HEIGHT - 1)
-            energy_sources.add((ex, ey))
-        st.session_state.energy_sources = list(energy_sources)
-        st.session_state.running = False
-
-    if st.session_state.running:
-        if st.button("Pause"):
-            st.session_state.running = False
-    else:
-        if st.button("Play"):
-            st.session_state.running = True
-
-    if "creature_trail_map" not in st.session_state:
-        st.session_state.creature_trail_map = {}  # {(x, y): intensity}
-
-# Simulation loop
-if st.session_state.running:
-    st_autorefresh(interval=500, key="refresh")
-
-weather = st.session_state.weather
-season = st.session_state.season
-day_night = st.session_state.day_night
-creatures = st.session_state.creatures
-energy_sources = st.session_state.energy_sources
-
-def generate_environment_zones():
-    zones = [["normal" for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
-
-    # Add water patches randomly
-    for _ in range(10):
-        wx = random.randint(0, GRID_WIDTH - 1)
-        wy = random.randint(0, GRID_HEIGHT - 1)
-        zones[wy][wx] = "water"
-
-    # Add hot zones randomly
-    for _ in range(10):
-        hx = random.randint(0, GRID_WIDTH - 1)
-        hy = random.randint(0, GRID_HEIGHT - 1)
-        zones[hy][hx] = "hot"
-
+# --- Initialize or reset zones on reset ---
+def init_zones():
+    zones = []
+    for x in range(GRID_WIDTH):
+        col = []
+        for y in range(GRID_HEIGHT):
+            r = random.random()
+            if r < 0.05:
+                col.append("water")
+            elif r < 0.1:
+                col.append("obstacle")
+            elif r < 0.15:
+                col.append("cold_zone")
+            elif r < 0.2:
+                col.append("hot_zone")
+            else:
+                col.append("normal")
+        zones.append(col)
     return zones
 
-if "env_zones" not in st.session_state:
-    st.session_state.env_zones = generate_environment_zones()
+# --- Main Streamlit interface ---
 
-for c in creatures:
-    c.update(creatures, energy_sources, weather, season, day_night)
+def main():
+    st.title("Extended Creature Simulation with Aging, Memory, and Social Behavior")
 
-# Update creature trail map
-new_trails = {}
-for c in creatures:
-    key = (c.x, c.y)
-    new_trails[key] = TRAIL_FADE_STEPS
+    if "creatures" not in st.session_state:
+        st.session_state.creatures = []
+    if "energy_sources" not in st.session_state:
+        st.session_state.energy_sources = []
+    if "creature_trail_map" not in st.session_state:
+        st.session_state.creature_trail_map = {}
+    if "weather" not in st.session_state:
+        st.session_state.weather = "sunny"
+    if "season" not in st.session_state:
+        st.session_state.season = "summer"
+    if "day_night" not in st.session_state:
+        st.session_state.day_night = "day"
+    if "zones" not in st.session_state:
+        st.session_state.zones = init_zones()
+    if "sim_params" not in st.session_state:
+        st.session_state.sim_params = {
+            "habituation_rate": 0.95,
+            "inhibition": 0.2,
+        }
 
-# Decay old trails
-old_trails = st.session_state.creature_trail_map
-updated_trails = {}
-for pos, intensity in old_trails.items():
-    if intensity > 1 and pos not in new_trails:
-        updated_trails[pos] = intensity - 1
-for pos, intensity in new_trails.items():
-    updated_trails[pos] = TRAIL_FADE_STEPS
+    # UI Controls
+    with st.sidebar:
+        st.header("Simulation Parameters")
+        st.session_state.sim_params["habituation_rate"] = st.slider("Habituation rate", 0.8, 1.0, 0.95)
+        st.session_state.sim_params["inhibition"] = st.slider("Inhibition", 0.0, 0.5, 0.2)
+        st.session_state.weather = st.selectbox("Weather", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather))
+        st.session_state.season = st.selectbox("Season", SEASON_OPTIONS, index=SEASON_OPTIONS.index(st.session_state.season))
+        st.session_state.day_night = st.selectbox("Day/Night", DAY_NIGHT_OPTIONS, index=DAY_NIGHT_OPTIONS.index(st.session_state.day_night))
 
-st.session_state.creature_trail_map = updated_trails
+        if st.button("Reset Simulation"):
+            st.session_state.creatures = []
+            st.session_state.energy_sources = []
+            st.session_state.creature_trail_map = {}
+            st.session_state.zones = init_zones()
 
-img = draw_grid(creatures, energy_sources, weather, season, day_night)
-st.image(img, width=GRID_WIDTH * CELL_SIZE)
+        if st.button("Add Species A"):
+            for _ in range(5):
+                x, y = random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)
+                if st.session_state.zones[x][y] != "obstacle":
+                    st.session_state.creatures.append(Creature(x, y, "A"))
 
-st.subheader("CREATURE STATS")
-for c in creatures:
-    st.markdown(
-        f"**CREATURE {c.id}** — SPECIES: {c.species} | MOOD: {c.mood} | ENERGY: {c.energy:.1f} | STRESS: {c.stress:.2f} {MOOD_DATA[c.mood]['emoji']}"
-    )
+        if st.button("Add Species B"):
+            for _ in range(5):
+                x, y = random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)
+                if st.session_state.zones[x][y] != "obstacle":
+                    st.session_state.creatures.append(Creature(x, y, "B"))
+
+        if st.button("Add Energy Sources"):
+            for _ in range(15):
+                x, y = random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)
+                if st.session_state.zones[x][y] != "obstacle":
+                    st.session_state.energy_sources.append((x, y))
+
+    # Update creatures
+    for c in st.session_state.creatures:
+        c.update(st.session_state.creatures, st.session_state.energy_sources,
+                 st.session_state.weather, st.session_state.season,
+                 st.session_state.day_night, st.session_state.zones)
+
+    # Remove dead creatures
+    st.session_state.creatures = [c for c in st.session_state.creatures if c.alive]
+
+    # Update trail map for fading trails
+    new_trail_map = {}
+    for c in st.session_state.creatures:
+        key = (c.x, c.y)
+        new_trail_map[key] = TRAIL_FADE_STEPS
+
+    # Decrease trail intensity on old trails
+    for key, val in st.session_state.creature_trail_map.items():
+        new_val = val - 1
+        if new_val > 0:
+            if key in new_trail_map:
+                new_trail_map[key] = max(new_trail_map[key], new_val)
+            else:
+                new_trail_map[key] = new_val
+
+    st.session_state.creature_trail_map = new_trail_map
+
+    img = draw_grid(st.session_state.creatures, st.session_state.energy_sources,
+                    st.session_state.weather, st.session_state.season,
+                    st.session_state.day_night, st.session_state.zones)
+
+    st.image(img, width=GRID_WIDTH * CELL_SIZE)
+
+    # Show creature info on hover or selected? (simplified, show summary)
+    st.write(f"Creatures count: {len(st.session_state.creatures)}")
+    # Show average age, mutation count
+    if st.session_state.creatures:
+        avg_age = sum(c.age for c in st.session_state.creatures) / len(st.session_state.creatures)
+        mutated_count = sum(1 for c in st.session_state.creatures if c.mutated)
+        st.write(f"Average creature age: {avg_age:.1f}")
+        st.write(f"Creatures mutated: {mutated_count}")
+
+if __name__ == "__main__":
+    main()
