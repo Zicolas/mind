@@ -13,6 +13,8 @@ CELL_SIZE = 20
 MAX_ENERGY = 15.0
 MAX_HISTORY = 50
 
+TRAIL_FADE_STEPS = 10
+
 # Weather options
 WEATHER_OPTIONS = ["sunny", "cloudy", "rainy", "stormy"]
 SEASON_OPTIONS = ["spring", "summer", "fall", "winter"]
@@ -153,6 +155,13 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
         bottom_right = ((ex + 1) * CELL_SIZE - 4, (ey + 1) * CELL_SIZE - 4)
         draw.rectangle([top_left, bottom_right], fill=(255, 255, 0))
 
+    # Draw fading trails
+    trail_map = st.session_state.creature_trail_map
+    for (tx, ty), intensity in trail_map.items():
+        fade_color = (100, 100, 100, int(255 * (intensity / TRAIL_FADE_STEPS)))
+        trail_overlay = Image.new("RGBA", (CELL_SIZE, CELL_SIZE), fade_color)
+        img.paste(trail_overlay, (tx * CELL_SIZE, ty * CELL_SIZE), trail_overlay)
+    
     for c in creatures:
         mood_color = SPECIES_DATA[c.species]["mood_colors"][c.mood]
         brightness = int(100 + 155 * min(1.0, c.energy / MAX_ENERGY))
@@ -252,6 +261,9 @@ with st.sidebar:
         if st.button("Play"):
             st.session_state.running = True
 
+    if "creature_trail_map" not in st.session_state:
+        st.session_state.creature_trail_map = {}  # {(x, y): intensity}
+
 # Simulation loop
 if st.session_state.running:
     st_autorefresh(interval=500, key="refresh")
@@ -264,6 +276,23 @@ energy_sources = st.session_state.energy_sources
 
 for c in creatures:
     c.update(creatures, energy_sources, weather, season, day_night)
+
+# Update creature trail map
+new_trails = {}
+for c in creatures:
+    key = (c.x, c.y)
+    new_trails[key] = TRAIL_FADE_STEPS
+
+# Decay old trails
+old_trails = st.session_state.creature_trail_map
+updated_trails = {}
+for pos, intensity in old_trails.items():
+    if intensity > 1 and pos not in new_trails:
+        updated_trails[pos] = intensity - 1
+for pos, intensity in new_trails.items():
+    updated_trails[pos] = TRAIL_FADE_STEPS
+
+st.session_state.creature_trail_map = updated_trails
 
 img = draw_grid(creatures, energy_sources, weather, season, day_night)
 st.image(img, width=GRID_WIDTH * CELL_SIZE)
