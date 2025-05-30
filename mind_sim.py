@@ -10,10 +10,17 @@ from collections import deque
 GRID_WIDTH = 30
 GRID_HEIGHT = 30
 CELL_SIZE = 20
-MAX_ENERGY = 15.0  # Increased max energy
-MAX_HISTORY = 50  # For stats tracking history length
+MAX_ENERGY = 15.0
+MAX_HISTORY = 50
 
-# Species data (two species with distinct colors)
+WEATHER_TYPES = ["calm", "hot", "cold", "storm"]
+WEATHER_EFFECTS = {
+    "calm": {"energy_drain": 0.06, "stress_modifier": 0.0},
+    "hot": {"energy_drain": 0.1, "stress_modifier": 0.1},
+    "cold": {"energy_drain": 0.08, "stress_modifier": 0.05},
+    "storm": {"energy_drain": 0.12, "stress_modifier": 0.2},
+}
+
 SPECIES_DATA = {
     "A": {"base_color": (0, 200, 0), "mood_colors": {
         "happy": (0, 255, 0),
@@ -36,26 +43,16 @@ MOOD_DATA = {
     "angry": {"emoji": "😡"},
 }
 
-WEATHER_TYPES = ["calm", "hot", "cold", "storm"]
-WEATHER_EFFECTS = {
-    "calm": {"energy_drain": 0.06, "stress_modifier": 0.0},
-    "hot": {"energy_drain": 0.1, "stress_modifier": 0.1},
-    "cold": {"energy_drain": 0.08, "stress_modifier": 0.05},
-    "storm": {"energy_drain": 0.12, "stress_modifier": 0.2},
-}
-
-
 class Creature:
     _id_counter = 0
 
     def __init__(self, x, y, species):
         self.id = Creature._id_counter
         Creature._id_counter += 1
-
         self.x = x
         self.y = y
         self.species = species
-        self.energy = random.uniform(6, 10)  # Increased initial energy
+        self.energy = random.uniform(6, 10)
         self.stress = 0.0
         self.habituation_rate = st.session_state.sim_params['habituation_rate']
         self.inhibition = st.session_state.sim_params['inhibition']
@@ -63,8 +60,6 @@ class Creature:
         self.constricted = False
         self.response = 1.0
         self.mood = "neutral"
-
-        # Stats history (energy and stress)
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
 
@@ -72,25 +67,22 @@ class Creature:
         self.habituation_rate = st.session_state.sim_params['habituation_rate']
         self.inhibition = st.session_state.sim_params['inhibition']
 
-        # Habituation and inhibition
         self.response *= self.habituation_rate
         if not self.disinhibited:
             self.response -= self.inhibition
 
-        # Stress contagion from neighbors
         neighbors = [c for c in creatures if abs(c.x - self.x) <= 1 and abs(c.y - self.y) <= 1 and c.id != self.id]
         if neighbors:
             avg_neighbor_stress = sum(n.stress for n in neighbors) / len(neighbors)
             self.stress += (avg_neighbor_stress - self.stress) * 0.05
 
-        # Small random stress fluctuation
-        stress_change = (random.random() - 0.5) * 0.05
-        self.stress = min(1.0, max(0.0, self.stress + stress_change))
+        self.stress = min(1.0, max(0.0, self.stress + (random.random() - 0.5) * 0.05))
 
         self.constricted = self.stress > 0.7
         if random.random() < 0.05:
             self.disinhibited = not self.disinhibited
 
+        # Weather effect
         weather = st.session_state.weather
         effect = WEATHER_EFFECTS[weather]
         self.energy -= effect["energy_drain"]
@@ -106,7 +98,7 @@ class Creature:
                 self.x = new_x
                 self.y = new_y
             if (self.x, self.y) == closest:
-                self.energy = min(MAX_ENERGY, self.energy + 8)  # bigger recharge
+                self.energy = min(MAX_ENERGY, self.energy + 8)
                 energy_sources.remove(closest)
         else:
             if not self.constricted:
@@ -118,13 +110,25 @@ class Creature:
                     self.x = new_x
                     self.y = new_y
 
-        if self.energy <= 0:
-            self.energy = random.uniform(6, 10)  # reset with higher energy
-            self.stress = 0.0
-            self.response = 1.0
-            self.disinhibited = False
+        # Regeneration zones
+        if (self.x, self.y) in st.session_state.regen_zones and self.energy < MAX_ENERGY:
+            self.energy = min(MAX_ENERGY, self.energy + 0.1)
 
-        # Mood update
+        # Reproduction
+        if self.energy > 13 and self.stress < 0.3 and random.random() < 0.01:
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    nx, ny = self.x + dx, self.y + dy
+                    if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT and not any(c.x == nx and c.y == ny for c in creatures):
+                        child = Creature(nx, ny, self.species)
+                        child.energy = self.energy / 2
+                        self.energy /= 2
+                        st.session_state.new_creatures.append(child)
+                        break
+
+        if self.energy <= 0:
+            self.energy = 0
+
         if self.stress < 0.3 and self.energy > 6:
             self.mood = "happy"
         elif self.stress > 0.7:
@@ -151,6 +155,11 @@ def draw_grid(creatures, energy_sources):
         bottom_right = ((ex + 1) * CELL_SIZE - 4, (ey + 1) * CELL_SIZE - 4)
         draw.rectangle([top_left, bottom_right], fill=(255, 255, 0))
 
+    for rx, ry in st.session_state.regen_zones:
+        top_left = (rx * CELL_SIZE + 6, ry * CELL_SIZE + 6)
+        bottom_right = ((rx + 1) * CELL_SIZE - 6, (ry + 1) * CELL_SIZE - 6)
+        draw.rectangle([top_left, bottom_right], fill=(0, 100, 255))
+
     for c in creatures:
         mood_color = SPECIES_DATA[c.species]["mood_colors"][c.mood]
         brightness = int(100 + 155 * min(1.0, c.energy / MAX_ENERGY))
@@ -165,7 +174,6 @@ def draw_grid(creatures, energy_sources):
 
 st.set_page_config(page_title="Mind Simulation Grid v2", layout="wide")
 st.title("🧠 Mind Simulation Sandbox - v2 with Species & Energy")
-st.markdown(f"### Current Weather: `{st.session_state.weather.upper()}`")
 
 if "sim_params" not in st.session_state:
     st.session_state.sim_params = {
@@ -198,14 +206,20 @@ if "energy_sources" not in st.session_state:
         attempts += 1
     st.session_state.energy_sources = list(energy_sources)
 
+if "regen_zones" not in st.session_state:
+    regen_zones = set()
+    while len(regen_zones) < 10:
+        x = random.randint(0, GRID_WIDTH - 1)
+        y = random.randint(0, GRID_HEIGHT - 1)
+        regen_zones.add((x, y))
+    st.session_state.regen_zones = list(regen_zones)
+
 if "running" not in st.session_state:
     st.session_state.running = False
-    
+
 if "weather" not in st.session_state:
     st.session_state.weather = random.choice(WEATHER_TYPES)
     st.session_state.weather_ticks = 0
-
-# --- Sidebar ---
 
 with st.sidebar:
     st.header("Controls")
@@ -222,27 +236,9 @@ with st.sidebar:
     st.session_state.sim_params['energy_source_count'] = energy_sources_count
 
     if st.button("Reset Creatures and Energy"):
-        creatures = []
-        attempts = 0
-        while len(creatures) < st.session_state.sim_params["initial_creature_count"] and attempts < 200:
-            x = random.randint(0, GRID_WIDTH - 1)
-            y = random.randint(0, GRID_HEIGHT - 1)
-            species = random.choice(list(SPECIES_DATA.keys()))
-            if not any(c.x == x and c.y == y for c in creatures):
-                creatures.append(Creature(x, y, species))
-            attempts += 1
-        st.session_state.creatures = creatures
-
-        energy_sources = set()
-        attempts = 0
-        while len(energy_sources) < st.session_state.sim_params["energy_source_count"] and attempts < 300:
-            ex = random.randint(0, GRID_WIDTH - 1)
-            ey = random.randint(0, GRID_HEIGHT - 1)
-            if not any(c.x == ex and c.y == ey for c in st.session_state.creatures) and (ex, ey) not in energy_sources:
-                energy_sources.add((ex, ey))
-            attempts += 1
-        st.session_state.energy_sources = list(energy_sources)
-
+        st.session_state.creatures = []
+        st.session_state.energy_sources = []
+        st.session_state.regen_zones = []
         st.session_state.running = False
         st.experimental_rerun()
 
@@ -254,29 +250,32 @@ with st.sidebar:
             st.session_state.running = True
 
     st.markdown("---")
-
     st.write("Adjust parameters and reset to apply.")
-
-# --- Simulation loop ---
 
 if st.session_state.running:
     st_autorefresh(interval=500, key="auto_refresh")
-
-creatures = st.session_state.creatures
-energy_sources = st.session_state.energy_sources
 
 st.session_state.weather_ticks += 1
 if st.session_state.weather_ticks > 20:
     st.session_state.weather = random.choice(WEATHER_TYPES)
     st.session_state.weather_ticks = 0
 
+st.markdown(f"### Current Weather: `{st.session_state.weather.upper()}`")
+
+st.session_state.new_creatures = []
+creatures = st.session_state.creatures
+energy_sources = st.session_state.energy_sources
+
 for c in creatures:
     c.update(creatures, energy_sources)
+
+creatures = [c for c in creatures if c.energy > 0]
+creatures.extend(st.session_state.new_creatures)
+st.session_state.creatures = creatures
 
 img = draw_grid(creatures, energy_sources)
 st.image(img, width=GRID_WIDTH * CELL_SIZE)
 
-# Show simple stats table
 st.subheader("Creature Status")
 for c in creatures:
     st.markdown(f"**Creature {c.id}** Species: {c.species} Mood: {c.mood} Energy: {c.energy:.1f} Stress: {c.stress:.2f} {MOOD_DATA[c.mood]['emoji']}")
