@@ -2,4 +2,3 @@ streamlit
 streamlit-autorefresh
 numpy
 pillow
-matplotlib
