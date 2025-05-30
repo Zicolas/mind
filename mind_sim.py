@@ -336,5 +336,5 @@ st.image(img, width=GRID_WIDTH * CELL_SIZE)
 st.subheader("CREATURE STATS")
 for c in creatures:
     st.markdown(
-        f"**CREATURE {c.id}** — SPECIES: {c.species} | MOOD: {c.mood} | ENERGY: {c.energy:.1f} | STRESS: {c.stress:.2f} | AGE: {c.age} / {c.max_age} | GEN: {c.generation} {MOOD_DATA[c.mood]['emoji']}"
+        f"**CREATURE {c.id}** — SPECIES: {c.species} | MOOD: {c.mood} | ENERGY: {c.energy:.1f} | STRESS: {c.stress:.2f} | AGE: {c.age} / {c.MAX_AGE} | GEN: {c.generation} {MOOD_DATA[c.mood]['emoji']}"
     )
