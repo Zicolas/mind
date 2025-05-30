@@ -243,7 +243,7 @@ with st.sidebar:
             energy_sources.add((random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)))
         st.session_state.energy_sources = list(energy_sources)
         st.session_state.running = False
-        st.experimental_rerun()
+        st.rerun()
     if st.session_state.running:
         if st.button("Pause"):
             st.session_state.running = False
