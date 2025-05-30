@@ -70,7 +70,7 @@ class Creature:
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
 
-    def update(self, creatures, energy_sources, weather):
+    def update(self, creatures, energy_sources, weather, season, day_night):
         if weather == "sunny":
             self.stress -= 0.01
         elif weather == "rainy":
@@ -244,7 +244,7 @@ season = st.session_state.season
 day_night = st.session_state.day_night
 
 for c in creatures:
-    c.update(creatures, energy_sources, weather)
+    c.update(creatures, energy_sources, weather, season, day_night)
 
 img = draw_grid(creatures, energy_sources, weather, season, day_night)
 st.image(img, width=GRID_WIDTH * CELL_SIZE)
