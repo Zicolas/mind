@@ -58,13 +58,14 @@ MOOD_DATA = {
 class Creature:
     _id_counter = 0
 
-    def __init__(self, x, y, species):
+    def __init__(self, x, y, species, generation=1):
         self.id = Creature._id_counter
         Creature._id_counter += 1
 
         self.x = x
         self.y = y
         self.species = species
+        self.generation = generation
         self.energy = random.uniform(6, 10)
         self.stress = 0.0
         self.age = 0
