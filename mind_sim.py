@@ -219,7 +219,7 @@ for c in creatures:
 
 creatures.extend(new_creatures)
 
-def draw_grid(creatures, energy_sources, weather, season, day_night):
+def draw_grid(creatures, energy_sources, weather, season, day_night, env_zones):
     ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), ground_color)
     draw = ImageDraw.Draw(img)
@@ -240,6 +240,17 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
         fade_color = (100, 100, 100, int(255 * (intensity / TRAIL_FADE_STEPS)))
         trail_overlay = Image.new("RGBA", (CELL_SIZE, CELL_SIZE), fade_color)
         img.paste(trail_overlay, (tx * CELL_SIZE, ty * CELL_SIZE), trail_overlay)
+
+    # Draw environment zones overlays
+    for y in range(GRID_HEIGHT):
+        for x in range(GRID_WIDTH):
+            zone = env_zones[y][x]
+            if zone == "water":
+                water_overlay = Image.new("RGBA", (CELL_SIZE, CELL_SIZE), (0, 0, 255, 100))
+                img.paste(water_overlay, (x * CELL_SIZE, y * CELL_SIZE), water_overlay)
+            elif zone == "hot":
+                hot_overlay = Image.new("RGBA", (CELL_SIZE, CELL_SIZE), (255, 50, 0, 100))
+                img.paste(hot_overlay, (x * CELL_SIZE, y * CELL_SIZE), hot_overlay)
     
     for c in creatures:
         mood_color = SPECIES_DATA[c.species]["mood_colors"][c.mood]
