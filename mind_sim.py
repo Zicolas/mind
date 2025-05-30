@@ -82,11 +82,21 @@ class Creature:
         if random.random() < 0.05:
             self.disinhibited = not self.disinhibited
 
-        # Weather effect
-        weather = st.session_state.weather
+        # Weather effect (improved stress logic)
+         weather = st.session_state.weather
         effect = WEATHER_EFFECTS[weather]
         self.energy -= effect["energy_drain"]
-        self.stress = min(1.0, max(0.0, self.stress + effect["stress_modifier"]))
+
+        # Adaptive stress: only push toward a weather-specific target stress level
+        weather_target_stress = {
+            "calm": 0.2,
+            "hot": 0.4,
+            "cold": 0.35,
+            "storm": 0.6,
+        }
+        target = weather_target_stress[weather]
+        self.stress += (target - self.stress) * 0.02  # Gentle adjustment
+        self.stress = max(0.0, min(1.0, self.stress))
 
         if self.energy < 3 and energy_sources:
             closest = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
