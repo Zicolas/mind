@@ -61,7 +61,6 @@ class Creature:
     def __init__(self, x, y, species, generation=1):
         self.id = Creature._id_counter
         Creature._id_counter += 1
-        Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1), random.choice(list(SPECIES_DATA.keys())), generation=1)
 
         self.x = x
         self.y = y
@@ -250,7 +249,7 @@ if "day_night" not in st.session_state:
 
 if "creatures" not in st.session_state:
     st.session_state.creatures = [
-        Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1), random.choice(list(SPECIES_DATA.keys())))
+        Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1), random.choice(list(SPECIES_DATA.keys())), generation=1)
         for _ in range(st.session_state.sim_params["initial_creature_count"])
     ]
 
