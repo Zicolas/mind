@@ -51,8 +51,8 @@ class Creature:
         self.species = species
         self.energy = random.uniform(6, 10)
         self.stress = 0.0
-        self.habituation_rate = st.session_state.sim_params['habituation_rate']
-        self.inhibition = st.session_state.sim_params['inhibition']
+        self.habituation_rate = 0.95
+        self.inhibition = 0.2
         self.disinhibited = False
         self.constricted = False
         self.response = 1.0
@@ -62,9 +62,6 @@ class Creature:
         self.stress_history = deque(maxlen=MAX_HISTORY)
 
     def update(self, creatures, energy_sources, weather):
-        self.habituation_rate = st.session_state.sim_params['habituation_rate']
-        self.inhibition = st.session_state.sim_params['inhibition']
-
         # Weather stress impact
         if weather == "sunny":
             self.stress -= 0.01
@@ -204,8 +201,6 @@ with st.sidebar:
     st.session_state.weather = st.selectbox("Weather Condition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather))
 
     st.subheader("Simulation Settings")
-    st.session_state.sim_params['habituation_rate'] = st.slider("Habituation Rate", 0.7, 1.0, st.session_state.sim_params['habituation_rate'], 0.01)
-    st.session_state.sim_params['inhibition'] = st.slider("Inhibition", 0.0, 1.0, st.session_state.sim_params['inhibition'], 0.01)
 
     if st.button("Reset Creatures and Energy"):
         st.session_state.creatures = []
