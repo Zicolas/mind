@@ -344,4 +344,4 @@ for c in creatures:
         f"**CREATURE {c.id}** — SPECIES: {c.species} | MOOD: {c.mood} | ENERGY: {c.energy:.1f} | STRESS: {c.stress:.2f} | AGE: {c.age} / {MAX_AGE} | GEN: {c.generation} {MOOD_DATA[c.mood]['emoji']}"
     )
 
-spawn_energy(prob=energy_spawn_rate)
+spawn_energy(prob=0.05)
