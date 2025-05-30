@@ -83,7 +83,7 @@ class Creature:
             self.disinhibited = not self.disinhibited
 
         # Weather effect (improved stress logic)
-         weather = st.session_state.weather
+        weather = st.session_state.weather
         effect = WEATHER_EFFECTS[weather]
         self.energy -= effect["energy_drain"]
 
