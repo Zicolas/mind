@@ -72,7 +72,7 @@ class Creature:
         self.mood = "neutral"
 
         self.age = 0
-        self.max_age = random.randint(80, 120)
+        self.max_age = random.randint(400, 800)
         self.memory = {}
         self.mutation_rate = 0.1
         self.generation = 1
