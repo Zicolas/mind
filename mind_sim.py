@@ -51,8 +51,8 @@ class Creature:
         self.species = species
         self.energy = random.uniform(6, 10)
         self.stress = 0.0
-        self.habituation_rate = 0.95
-        self.inhibition = 0.2
+        self.habituation_rate = st.session_state.sim_params.get("habituation_rate", 0.95)
+        self.inhibition = st.session_state.sim_params.get("inhibition", 0.2)
         self.disinhibited = False
         self.constricted = False
         self.response = 1.0
@@ -198,7 +198,9 @@ if "running" not in st.session_state:
 with st.sidebar:
     st.header("Controls")
     st.subheader("Weather")
-    st.session_state.weather = st.selectbox("Weather Condition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather))
+    st.session_state.weather = st.selectbox(
+        "Weather Condition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
+    )
 
     st.subheader("Simulation Settings")
 
@@ -218,7 +220,7 @@ with st.sidebar:
         st.session_state.energy_sources = list(energy_sources)
 
         st.session_state.running = False
-        st.rerun()
+        st.experimental_rerun()
 
     if st.session_state.running:
         if st.button("Pause"):
@@ -244,4 +246,6 @@ st.image(img, width=GRID_WIDTH * CELL_SIZE)
 
 st.subheader("Creature Status")
 for c in creatures:
-    st.markdown(f"**Creature {c.id}** Species: {c.species} Mood: {c.mood} Energy: {c.energy:.1f} Stress: {c.stress:.2f} {MOOD_DATA[c.mood]['emoji']}")
+    st.markdown(
+        f"**Creature {c.id}** Species: {c.species} Mood: {c.mood} Energy: {c.energy:.1f} Stress: {c.stress:.2f} {MOOD_DATA[c.mood]['emoji']}"
+    )
