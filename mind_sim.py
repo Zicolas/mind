@@ -328,6 +328,26 @@ day_night = st.session_state.day_night
 creatures = st.session_state.creatures
 energy_sources = st.session_state.energy_sources
 
+def generate_environment_zones():
+    zones = [["normal" for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+
+    # Add water patches randomly
+    for _ in range(10):
+        wx = random.randint(0, GRID_WIDTH - 1)
+        wy = random.randint(0, GRID_HEIGHT - 1)
+        zones[wy][wx] = "water"
+
+    # Add hot zones randomly
+    for _ in range(10):
+        hx = random.randint(0, GRID_WIDTH - 1)
+        hy = random.randint(0, GRID_HEIGHT - 1)
+        zones[hy][hx] = "hot"
+
+    return zones
+
+if "env_zones" not in st.session_state:
+    st.session_state.env_zones = generate_environment_zones()
+
 for c in creatures:
     c.update(creatures, energy_sources, weather, season, day_night)
 
