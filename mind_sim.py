@@ -260,7 +260,11 @@ def draw_grid(creatures, energy_sources, weather, season, day_night, zones):
             font = ImageFont.truetype("DejaVuSans.ttf", CELL_SIZE - 4)
         except:
             font = ImageFont.load_default()
+
+        # Use getsize instead of textsize
         w, h = font.getsize(mood_emoji)
+
+        # Draw emoji centered on the creature
         draw.text((cx - w // 2, cy - h // 2), mood_emoji, fill=(0, 0, 0), font=font)
 
     if day_night == "night":
