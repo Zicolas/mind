@@ -160,6 +160,14 @@ class Creature:
         if self.energy < 5 and self.memory and random.random() < 0.2:
             target = random.choice(list(self.memory))
 
+        if self.stress > 0.6 and random.random() < 0.05:
+            # Emit signal
+            self.signal = True
+            # Others within range move toward
+            for n in neighbors:
+                if n.stress < self.stress:
+                    n.x += np.sign(self.x - n.x)
+                    n.y += np.sign(self.y - n.y)
 def draw_grid(creatures, energy_sources, weather, season, day_night):
     ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), ground_color)
