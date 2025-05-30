@@ -338,31 +338,12 @@ def init_zones():
 
 def main():
     if st.session_state.play_sim:
-    st_autorefresh(interval=200, limit=None, key="simulation_autorefresh")
+        st_autorefresh(interval=200, limit=None, key="simulation_autorefresh")
 
     st.title("Extended Creature Simulation with Aging, Memory, and Social Behavior")
 
-    if "creatures" not in st.session_state:
-        st.session_state.creatures = []
-    if "energy_sources" not in st.session_state:
-        st.session_state.energy_sources = []
-    if "creature_trail_map" not in st.session_state:
-        st.session_state.creature_trail_map = {}
-    if "weather" not in st.session_state:
-        st.session_state.weather = "sunny"
-    if "season" not in st.session_state:
-        st.session_state.season = "summer"
-    if "day_night" not in st.session_state:
-        st.session_state.day_night = "day"
-    if "zones" not in st.session_state:
-        st.session_state.zones = init_zones()
-    if "sim_params" not in st.session_state:
-        st.session_state.sim_params = {
-            "habituation_rate": 0.95,
-            "inhibition": 0.2,
-        }
-
-    # UI Controls
+    # initialize session state variables ...
+    
     with st.sidebar:
         st.header("Simulation Parameters")
         st.session_state.sim_params["habituation_rate"] = st.slider("Habituation rate", 0.8, 1.0, 0.95)
@@ -372,10 +353,10 @@ def main():
         st.session_state.day_night = st.selectbox("Day/Night", DAY_NIGHT_OPTIONS, index=DAY_NIGHT_OPTIONS.index(st.session_state.day_night))
 
         if "play_sim" not in st.session_state:
-        st.session_state.play_sim = False
+            st.session_state.play_sim = False
 
         st.session_state.play_sim = st.checkbox("Play simulation", value=st.session_state.play_sim)
-        
+
         if st.button("Reset Simulation"):
             st.session_state.creatures = []
             st.session_state.energy_sources = []
@@ -401,10 +382,10 @@ def main():
                     st.session_state.energy_sources.append((x, y))
 
     if st.session_state.play_sim:
-    for c in st.session_state.creatures:
-        c.update(st.session_state.creatures, st.session_state.energy_sources,
-                 st.session_state.weather, st.session_state.season,
-                 st.session_state.day_night, st.session_state.zones)
+        for c in st.session_state.creatures:
+            c.update(st.session_state.creatures, st.session_state.energy_sources,
+                     st.session_state.weather, st.session_state.season,
+                     st.session_state.day_night, st.session_state.zones)
 
     # Remove dead creatures
     st.session_state.creatures = [c for c in st.session_state.creatures if c.alive]
