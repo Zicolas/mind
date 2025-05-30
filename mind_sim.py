@@ -14,7 +14,7 @@ MAX_ENERGY = 15.0
 MAX_HISTORY = 50
 
 # Weather options
-WEATHER_OPTIONS = ["sunny", "cloudy", "rainy", "stormy"]
+WEATHER_OPTIONS = ["Sunny", "Cloudy", "Rainy", "Stormy"]
 
 # Species data
 SPECIES_DATA = {
