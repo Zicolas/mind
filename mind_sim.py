@@ -201,9 +201,9 @@ with st.sidebar:
         "Current Conition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
     )
 
-    st.subheader("Simulation Settings")
+    st.subheader("SIMULATION")
 
-    if st.button("Reset Creatures and Energy"):
+    if st.button("RESET"):
         st.session_state.creatures = []
         for _ in range(st.session_state.sim_params["initial_creature_count"]):
             x = random.randint(0, GRID_WIDTH - 1)
@@ -244,7 +244,7 @@ for c in creatures:
 img = draw_grid(creatures, energy_sources)
 st.image(img, width=GRID_WIDTH * CELL_SIZE)
 
-st.subheader("Creature Status")
+st.subheader("CREATURE STATS")
 for c in creatures:
     st.markdown(
         f"**Creature {c.id}** Species: {c.species} Mood: {c.mood} Energy: {c.energy:.1f} Stress: {c.stress:.2f} {MOOD_DATA[c.mood]['emoji']}"
