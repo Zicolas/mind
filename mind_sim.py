@@ -255,20 +255,20 @@ def draw_grid(creatures, energy_sources, weather, season, day_night, zones):
             draw.line([(cx - radius, cy), (cx + radius, cy)], fill=(255, 0, 255), width=2)
             draw.line([(cx, cy - radius), (cx, cy + radius)], fill=(255, 0, 255), width=2)
 
+        # Draw emoji
         mood_emoji = MOOD_DATA[creature.mood]["emoji"]
         try:
             font = ImageFont.truetype("DejaVuSans.ttf", CELL_SIZE - 4)
         except:
             font = ImageFont.load_default()
 
-        # Use draw.textbbox to get size of the emoji
+        # Get bounding box of emoji text
         bbox = draw.textbbox((0, 0), mood_emoji, font=font)
         w = bbox[2] - bbox[0]
         h = bbox[3] - bbox[1]
 
-        # Draw the emoji centered
+        # Center emoji on cell
         draw.text((cx - w // 2, cy - h // 2), mood_emoji, fill=(0, 0, 0), font=font)
-
 
     if day_night == "night":
         overlay = Image.new("RGBA", img.size, (0, 0, 30, 120))
