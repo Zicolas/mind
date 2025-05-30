@@ -60,6 +60,7 @@ class Creature:
 
     def __init__(self, x, y, species, generation=1):
         self.id = Creature._id_counter
+        Creature._id_counter += 1
         Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1), random.choice(list(SPECIES_DATA.keys())), generation=1)
 
         self.x = x
