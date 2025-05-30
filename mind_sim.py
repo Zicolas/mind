@@ -71,6 +71,7 @@ class Creature:
         self.constricted = False
         self.response = 1.0
         self.mood = "neutral"
+        self.memory = deque(maxlen=10)
 
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
@@ -151,6 +152,13 @@ class Creature:
             new_creature = Creature(self.x, self.y, self.species)
             creatures.append(new_creature)
             self.energy -= 4  # Reproduction cost
+
+        if (self.x, self.y) in energy_sources:
+            self.memory.append((self.x, self.y))
+
+        # In movement logic, bias toward memory occasionally:
+        if self.energy < 5 and self.memory and random.random() < 0.2:
+            target = random.choice(list(self.memory))
 
 def draw_grid(creatures, energy_sources, weather, season, day_night):
     ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
