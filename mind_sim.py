@@ -199,7 +199,7 @@ with st.sidebar:
     st.header("Controls")
     st.subheader("Weather")
     st.session_state.weather = st.selectbox(
-        "Weather", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
+        "", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
     )
 
     st.subheader("Simulation Settings")
@@ -228,6 +228,7 @@ with st.sidebar:
     else:
         if st.button("Play"):
             st.session_state.running = True
+
 
 # --- Simulation Loop ---
 
