@@ -82,9 +82,9 @@ class Creature:
         elif weather == "cloudy":
             pass
         elif weather == "rainy":
-            self.stress += 0.01
+            self.stress += 0.005
         elif weather == "stormy":
-            self.stress += 0.03
+            self.stress += 0.015
 
         self.stress = min(1.0, max(0.0, self.stress))
         self.response *= self.habituation_rate
