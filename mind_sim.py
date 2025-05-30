@@ -222,8 +222,8 @@ def mutate(self):
         self.inhibition += random.uniform(-0.05, 0.05)
         self.inhibition = min(max(0.1, self.inhibition), 0.5)
     if random.random() < self.mutation_rate:
-        self.max_age += random.randint(-10, 10)
-        self.max_age = max(50, min(150, self.max_age))
+        self.MAX_AGE += random.randint(-10, 10)
+        self.MAX_AGE = max(50, min(150, self.MAX_AGE))
 
 # --- Streamlit Setup ---
 st.set_page_config(page_title="Mind Sim", layout="wide")
