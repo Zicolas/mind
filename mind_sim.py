@@ -15,11 +15,7 @@ MAX_HISTORY = 50
 
 # Weather options
 WEATHER_OPTIONS = ["sunny", "cloudy", "rainy", "stormy"]
-
-# Season options
 SEASON_OPTIONS = ["spring", "summer", "fall", "winter"]
-
-# Day/Night options
 DAY_NIGHT_OPTIONS = ["day", "night"]
 
 # Species data
@@ -67,7 +63,7 @@ class Creature:
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
 
-    def update(self, creatures, energy_sources, weather):
+    def update(self, creatures, energy_sources, weather, season, day_night):
         # Weather stress impact
         if weather == "sunny":
             self.stress -= 0.01
@@ -78,8 +74,21 @@ class Creature:
         elif weather == "stormy":
             self.stress += 0.03
 
+        # Seasonal stress/relief
+        if season == "winter":
+            self.stress += 0.02
+        elif season == "summer":
+            self.stress -= 0.01
+
+        # Day/Night energy drain/boost
+        if day_night == "night":
+            self.energy -= 0.02
+        else:
+            self.energy += 0.01
+
         # Clamp stress
         self.stress = min(1.0, max(0.0, self.stress))
+        self.energy = min(MAX_ENERGY, max(0.0, self.energy))
 
         self.response *= self.habituation_rate
         if not self.disinhibited:
@@ -140,27 +149,41 @@ class Creature:
         self.stress_history.append(self.stress)
 
 def draw_grid(creatures, energy_sources, weather, season, day_night):
-    img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), (30, 30, 30))
+    base_color = (30, 30, 30)
+
+    if weather == "sunny":
+        base_color = (255, 255, 200)
+    elif weather == "cloudy":
+        base_color = (180, 180, 200)
+    elif weather == "rainy":
+        base_color = (100, 100, 150)
+    elif weather == "stormy":
+        base_color = (50, 50, 80)
+
+    # Apply seasonal tint
+    if season == "spring":
+        base_color = tuple(min(255, c + 30) for c in base_color)
+    elif season == "autumn" or season == "fall":
+        base_color = (base_color[0] + 30, base_color[1], base_color[2])
+    elif season == "winter":
+        base_color = tuple(min(255, int(c * 0.9)) for c in base_color)
+
+    if day_night == "night":
+        base_color = tuple(max(0, int(c * 0.4)) for c in base_color)
+
+    img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), base_color)
     draw = ImageDraw.Draw(img)
 
-    # Draw day/night background overlay
-    if day_night == "night":
-        overlay = Image.new("RGBA", img.size, (10, 10, 50, 150))  # dark blue translucent overlay
-        img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
-
-    # Draw grid lines
     for x in range(GRID_WIDTH + 1):
         draw.line([(x * CELL_SIZE, 0), (x * CELL_SIZE, GRID_HEIGHT * CELL_SIZE)], fill=(50, 50, 50))
     for y in range(GRID_HEIGHT + 1):
         draw.line([(0, y * CELL_SIZE), (GRID_WIDTH * CELL_SIZE, y * CELL_SIZE)], fill=(50, 50, 50))
 
-    # Draw energy sources
     for ex, ey in energy_sources:
         top_left = (ex * CELL_SIZE + 4, ey * CELL_SIZE + 4)
         bottom_right = ((ex + 1) * CELL_SIZE - 4, (ey + 1) * CELL_SIZE - 4)
         draw.rectangle([top_left, bottom_right], fill=(255, 255, 0))
 
-    # Draw creatures
     for c in creatures:
         mood_color = SPECIES_DATA[c.species]["mood_colors"][c.mood]
         brightness = int(100 + 155 * min(1.0, c.energy / MAX_ENERGY))
@@ -168,38 +191,6 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
         top_left = (c.x * CELL_SIZE + 2, c.y * CELL_SIZE + 2)
         bottom_right = ((c.x + 1) * CELL_SIZE - 2, (c.y + 1) * CELL_SIZE - 2)
         draw.rectangle([top_left, bottom_right], fill=color)
-
-    # Visualize weather overlay on grid with simple icons/text in the top-left corner
-    weather_icons = {
-        "sunny": "☀️",
-        "cloudy": "☁️",
-        "rainy": "🌧️",
-        "stormy": "⛈️",
-    }
-    season_colors = {
-        "spring": (60, 180, 75),
-        "summer": (255, 215, 0),
-        "fall": (255, 140, 0),
-        "winter": (180, 180, 255),
-    }
-
-    # Draw weather icon
-    try:
-        # Use default font, might not support emoji, fallback to text
-        font = ImageFont.load_default()
-        draw.text((5, 5), weather_icons.get(weather, ""), fill="white", font=font)
-    except:
-        draw.text((5, 5), weather, fill="white")
-
-    # Draw season name in corner with seasonal color
-    season_color = season_colors.get(season, (255, 255, 255))
-    draw.rectangle([5, 25, 90, 40], fill=season_color)
-    draw.text((10, 27), season.capitalize(), fill="black", font=font)
-
-    # Draw day/night label
-    daynight_color = (255, 255, 255) if day_night == "day" else (180, 180, 255)
-    draw.rectangle([5, 45, 90, 60], fill=(0, 0, 0, 150))
-    draw.text((10, 47), day_night.capitalize(), fill=daynight_color, font=font)
 
     return img
 
@@ -217,79 +208,42 @@ if "sim_params" not in st.session_state:
 
 if "weather" not in st.session_state:
     st.session_state.weather = "sunny"
-
 if "season" not in st.session_state:
     st.session_state.season = "spring"
-
 if "day_night" not in st.session_state:
     st.session_state.day_night = "day"
-
 if "creatures" not in st.session_state:
-    creatures = []
-    for _ in range(st.session_state.sim_params["initial_creature_count"]):
-        x = random.randint(0, GRID_WIDTH - 1)
-        y = random.randint(0, GRID_HEIGHT - 1)
-        species = random.choice(list(SPECIES_DATA.keys()))
-        creatures.append(Creature(x, y, species))
-    st.session_state.creatures = creatures
-
+    st.session_state.creatures = [Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1), random.choice(list(SPECIES_DATA.keys())))
+                                  for _ in range(st.session_state.sim_params["initial_creature_count"])]
 if "energy_sources" not in st.session_state:
     energy_sources = set()
     while len(energy_sources) < st.session_state.sim_params["energy_source_count"]:
-        ex = random.randint(0, GRID_WIDTH - 1)
-        ey = random.randint(0, GRID_HEIGHT - 1)
-        energy_sources.add((ex, ey))
+        energy_sources.add((random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)))
     st.session_state.energy_sources = list(energy_sources)
-
 if "running" not in st.session_state:
     st.session_state.running = False
 
 # --- Sidebar UI ---
-
 with st.sidebar:
     st.header("WEATHER")
-    # Ensure the weather in session_state is valid
-    if st.session_state.weather not in WEATHER_OPTIONS:
-        st.session_state.weather = WEATHER_OPTIONS[0]  # default to 'sunny'
+    st.session_state.weather = st.selectbox("Current Condition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather))
 
-    st.session_state.weather = st.selectbox(
-        "Current Condition", WEATHER_OPTIONS, index=WEATHER_OPTIONS.index(st.session_state.weather)
-    )
-    
     st.subheader("SEASON")
-    if "season" not in st.session_state:
-        st.session_state.season = SEASON_OPTIONS[0]
-    st.session_state.season = st.selectbox(
-        "Current Season", SEASON_OPTIONS, index=SEASON_OPTIONS.index(st.session_state.season)
-    )
-    
+    st.session_state.season = st.selectbox("Current Season", SEASON_OPTIONS, index=SEASON_OPTIONS.index(st.session_state.season))
+
     st.subheader("DAY / NIGHT")
-    if "day_night" not in st.session_state:
-        st.session_state.day_night = DAY_NIGHT_OPTIONS[0]
-    st.session_state.day_night = st.selectbox(
-        "Day or Night", DAY_NIGHT_OPTIONS, index=DAY_NIGHT_OPTIONS.index(st.session_state.day_night)
-    )
+    st.session_state.day_night = st.selectbox("Day or Night", DAY_NIGHT_OPTIONS, index=DAY_NIGHT_OPTIONS.index(st.session_state.day_night))
 
     st.subheader("SIMULATION")
-
     if st.button("Reset"):
-        st.session_state.creatures = []
-        for _ in range(st.session_state.sim_params["initial_creature_count"]):
-            x = random.randint(0, GRID_WIDTH - 1)
-            y = random.randint(0, GRID_HEIGHT - 1)
-            species = random.choice(list(SPECIES_DATA.keys()))
-            st.session_state.creatures.append(Creature(x, y, species))
-
+        st.session_state.creatures = [Creature(random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1), random.choice(list(SPECIES_DATA.keys())))
+                                      for _ in range(st.session_state.sim_params["initial_creature_count"])]
         energy_sources = set()
         while len(energy_sources) < st.session_state.sim_params["energy_source_count"]:
-            ex = random.randint(0, GRID_WIDTH - 1)
-            ey = random.randint(0, GRID_HEIGHT - 1)
-            energy_sources.add((ex, ey))
+            energy_sources.add((random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)))
         st.session_state.energy_sources = list(energy_sources)
-
         st.session_state.running = False
         st.experimental_rerun()
-
     if st.session_state.running:
         if st.button("Pause"):
             st.session_state.running = False
@@ -297,8 +251,7 @@ with st.sidebar:
         if st.button("Play"):
             st.session_state.running = True
 
-# --- Simulation Loop ---
-
+# --- Main Simulation ---
 if st.session_state.running:
     st_autorefresh(interval=500, key="refresh")
 
@@ -309,7 +262,7 @@ season = st.session_state.season
 day_night = st.session_state.day_night
 
 for c in creatures:
-    c.update(creatures, energy_sources, weather)
+    c.update(creatures, energy_sources, weather, season, day_night)
 
 img = draw_grid(creatures, energy_sources, weather, season, day_night)
 st.image(img, width=GRID_WIDTH * CELL_SIZE)
