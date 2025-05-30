@@ -36,6 +36,15 @@ MOOD_DATA = {
     "angry": {"emoji": "😡"},
 }
 
+WEATHER_TYPES = ["calm", "hot", "cold", "storm"]
+WEATHER_EFFECTS = {
+    "calm": {"energy_drain": 0.06, "stress_modifier": 0.0},
+    "hot": {"energy_drain": 0.1, "stress_modifier": 0.1},
+    "cold": {"energy_drain": 0.08, "stress_modifier": 0.05},
+    "storm": {"energy_drain": 0.12, "stress_modifier": 0.2},
+}
+
+
 class Creature:
     _id_counter = 0
 
@@ -82,7 +91,10 @@ class Creature:
         if random.random() < 0.05:
             self.disinhibited = not self.disinhibited
 
-        self.energy -= 0.06  # slower depletion
+        weather = st.session_state.weather
+        effect = WEATHER_EFFECTS[weather]
+        self.energy -= effect["energy_drain"]
+        self.stress = min(1.0, max(0.0, self.stress + effect["stress_modifier"]))
 
         if self.energy < 3 and energy_sources:
             closest = min(energy_sources, key=lambda e: abs(e[0]-self.x)+abs(e[1]-self.y))
@@ -138,6 +150,11 @@ def draw_grid(creatures, energy_sources):
         top_left = (ex * CELL_SIZE + 4, ey * CELL_SIZE + 4)
         bottom_right = ((ex + 1) * CELL_SIZE - 4, (ey + 1) * CELL_SIZE - 4)
         draw.rectangle([top_left, bottom_right], fill=(255, 255, 0))
+        
+    st.session_state.weather_ticks += 1
+    if st.session_state.weather_ticks > 20:
+        st.session_state.weather = random.choice(WEATHER_TYPES)
+        st.session_state.weather_ticks = 0
 
     for c in creatures:
         mood_color = SPECIES_DATA[c.species]["mood_colors"][c.mood]
@@ -187,6 +204,10 @@ if "energy_sources" not in st.session_state:
 
 if "running" not in st.session_state:
     st.session_state.running = False
+    
+if "weather" not in st.session_state:
+    st.session_state.weather = random.choice(WEATHER_TYPES)
+    st.session_state.weather_ticks = 0
 
 # --- Sidebar ---
 
@@ -258,4 +279,5 @@ st.image(img, width=GRID_WIDTH * CELL_SIZE)
 st.subheader("Creature Status")
 for c in creatures:
     st.markdown(f"**Creature {c.id}** Species: {c.species} Mood: {c.mood} Energy: {c.energy:.1f} Stress: {c.stress:.2f} {MOOD_DATA[c.mood]['emoji']}")
+    st.markdown(f"### Current Weather: `{st.session_state.weather.upper()}`")
 
