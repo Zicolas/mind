@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import random
 import json
+import copy
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from streamlit_autorefresh import st_autorefresh
 from collections import deque
@@ -60,8 +61,6 @@ class Creature:
 
         self.x = x
         self.y = y
-        self.age = 0
-        self.lifespan = random.randint(50, 120)
         self.species = species
         self.energy = random.uniform(6, 10)
         self.stress = 0.0
@@ -71,7 +70,11 @@ class Creature:
         self.constricted = False
         self.response = 1.0
         self.mood = "neutral"
-        self.memory = deque(maxlen=10)
+        self.age = 0
+        self.max_age = random.randint(80, 120)  # Lifespan
+        self.memory = {}  # Simple experience memory
+        self.mutation_rate = 0.1  # Controls trait mutation
+        self.generation = 1
 
         self.energy_history = deque(maxlen=MAX_HISTORY)
         self.stress_history = deque(maxlen=MAX_HISTORY)
@@ -82,9 +85,9 @@ class Creature:
         elif weather == "cloudy":
             pass
         elif weather == "rainy":
-            self.stress += 0.005
+            self.stress += 0.01
         elif weather == "stormy":
-            self.stress += 0.015
+            self.stress += 0.03
 
         self.stress = min(1.0, max(0.0, self.stress))
         self.response *= self.habituation_rate
@@ -143,34 +146,31 @@ class Creature:
         self.energy_history.append(self.energy)
         self.stress_history.append(self.stress)
 
+                # Aging and death
         self.age += 1
-        if self.age >= self.lifespan or self.energy <= 0:
+        if self.age > self.max_age or self.energy <= 0:
             creatures.remove(self)
-            return  # Skip rest of update
+            continue  # Skip further updates
+        
+        # Reproduction
+        if self.energy > 12 and random.random() < 0.02:
+            baby = copy.deepcopy(self)
+            baby.x = max(0, min(GRID_WIDTH - 1, self.x + random.choice([-1, 0, 1])))
+            baby.y = max(0, min(GRID_HEIGHT - 1, self.y + random.choice([-1, 0, 1])))
+            baby.energy = self.energy / 2
+            self.energy /= 2
+            baby.age = 0
+            baby.generation += 1
+            baby.memory = {}
+            baby.mutate()
+            creatures.append(baby)
+        
+        # Environmental hazards (e.g., weather stress)
+        if weather == "stormy":
+            if random.random() < 0.1:
+                self.energy -= 1.5
+                self.stress += 0.05
 
-        if self.energy > 13 and self.stress < 0.3 and random.random() < 0.01:
-            new_creature = Creature(self.x, self.y, self.species)
-            creatures.append(new_creature)
-            self.energy -= 4  # Reproduction cost
-
-        if (self.x, self.y) in energy_sources:
-            self.memory.append((self.x, self.y))
-
-        # In movement logic, bias toward memory occasionally:
-        if self.energy < 5 and self.memory and random.random() < 0.2:
-            target = random.choice(list(self.memory))
-
-        if self.stress > 0.6 and random.random() < 0.05:
-            self.signal = True  # Mark self as emitting signal
-            for n in neighbors:
-                if n.stress < self.stress:
-                    dx = np.sign(self.x - n.x)
-                    dy = np.sign(self.y - n.y)
-                    target_x = min(max(n.x + dx, 0), GRID_WIDTH - 1)
-                    target_y = min(max(n.y + dy, 0), GRID_HEIGHT - 1)
-                    if not any(c.x == target_x and c.y == target_y for c in creatures):
-                        n.x = target_x
-                        n.y = target_y
 def draw_grid(creatures, energy_sources, weather, season, day_night):
     ground_color = "#799548" if season == "winter" else SEASON_GROUND_COLORS.get(season, "#799548")
     img = Image.new("RGB", (GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE), ground_color)
@@ -189,7 +189,7 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
     # Draw fading trails
     trail_map = st.session_state.creature_trail_map
     for (tx, ty), intensity in trail_map.items():
-        fade_color = (190, 190, 190, int(255 * (intensity / TRAIL_FADE_STEPS)))
+        fade_color = (100, 100, 100, int(255 * (intensity / TRAIL_FADE_STEPS)))
         trail_overlay = Image.new("RGBA", (CELL_SIZE, CELL_SIZE), fade_color)
         img.paste(trail_overlay, (tx * CELL_SIZE, ty * CELL_SIZE), trail_overlay)
     
@@ -223,6 +223,17 @@ def draw_grid(creatures, energy_sources, weather, season, day_night):
 
     img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
     return img
+
+def mutate(self):
+    if random.random() < self.mutation_rate:
+        self.habituation_rate += random.uniform(-0.01, 0.01)
+        self.habituation_rate = min(max(0.85, self.habituation_rate), 0.99)
+    if random.random() < self.mutation_rate:
+        self.inhibition += random.uniform(-0.05, 0.05)
+        self.inhibition = min(max(0.1, self.inhibition), 0.5)
+    if random.random() < self.mutation_rate:
+        self.max_age += random.randint(-10, 10)
+        self.max_age = max(50, min(150, self.max_age))
 
 # --- Streamlit Setup ---
 st.set_page_config(page_title="Mind Sim", layout="wide")
@@ -305,7 +316,8 @@ day_night = st.session_state.day_night
 creatures = st.session_state.creatures
 energy_sources = st.session_state.energy_sources
 
-for c in creatures:
+creatures_copy = list(creatures)
+for c in creatures_copy:
     c.update(creatures, energy_sources, weather, season, day_night)
 
 # Update creature trail map
@@ -331,5 +343,5 @@ st.image(img, width=GRID_WIDTH * CELL_SIZE)
 st.subheader("CREATURE STATS")
 for c in creatures:
     st.markdown(
-        f"**CREATURE {c.id}** — SPECIES: {c.species} | MOOD: {c.mood} | ENERGY: {c.energy:.1f} | STRESS: {c.stress:.2f} {MOOD_DATA[c.mood]['emoji']}"
+        f"**CREATURE {c.id}** — SPECIES: {c.species} | MOOD: {c.mood} | ENERGY: {c.energy:.1f} | STRESS: {c.stress:.2f} | AGE: {c.age} / {c.max_age} | GEN: {c.generation} {MOOD_DATA[c.mood]['emoji']}"
     )
